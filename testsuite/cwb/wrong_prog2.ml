@@ -1,0 +1,1 @@
+let x = ref 0 in (fun (f:Unit->Unit) -> let n  = !x in f(); x := (n+1), fun (y:Unit) -> !x)

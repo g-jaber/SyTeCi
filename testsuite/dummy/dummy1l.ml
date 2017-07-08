@@ -1,0 +1,1 @@
+let x = ref 0 in fun (y:Unit) -> !x

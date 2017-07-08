@@ -1,0 +1,1 @@
+fun (f:Unit->Unit) ->f(); f(); 1

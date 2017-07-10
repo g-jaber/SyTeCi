@@ -6,10 +6,10 @@ open Skor
 
 type kindTerm = IsVal | IsCallExtern of (id*typeML*exprML*eval_context) | IsRecCall of (id*exprML*exprML*eval_context)
   
-let kind_of_term cb_context (expr,gamma) = 
+let kind_of_term funct_var_ctx (expr,gamma) = 
   if isval expr then IsVal 
   else begin let (f,v,ctx) = extract_call expr in
-    begin match Pmap.lookup_pmap f cb_context with
+    begin match Pmap.lookup_pmap f funct_var_ctx with
       | None -> begin match Pmap.lookup_pmap f gamma with
                   | None -> failwith ("The variable " ^ f ^ " comes from nowhere.")
                   | Some ty -> IsRecCall (f,ty,v,ctx)
@@ -18,17 +18,17 @@ let kind_of_term cb_context (expr,gamma) =
     end
   end 
 
-let select_tag cb_context (expr1,gamma1) (expr2,gamma2) =
-  match (kind_of_term cb_context (expr1,gamma1), kind_of_term cb_context (expr1,gamma1)) with
+let select_tag funct_var_ctx (expr1,gamma1) (expr2,gamma2) =
+  match (kind_of_term funct_var_ctx (expr1,gamma1), kind_of_term funct_var_ctx (expr1,gamma1)) with
     | (IsVal,IsVal) -> WB
     | (IsCallExtern _,IsCallExtern _) -> Extern    
     | (IsRecCall _,_) -> Intern
     | (_,IsRecCall _) -> Intern
     | (_,_) -> Wrong
     
-let get_elem_callexts cb_context (expr1,gamma1) (expr2,gamma2) =
-  match (kind_of_term cb_context (expr1,gamma1), kind_of_term cb_context (expr2,gamma2)) with
-   | (IsCallExtern (f1,ty1,v1,k1), IsCallExtern (f2,ty2,v2,k2)) when f1 = f2 -> Some (ty1,k1,v1,k2,v2)
+let get_elem_callexts funct_var_ctx (expr1,gamma1) (expr2,gamma2) =
+  match (kind_of_term funct_var_ctx (expr1,gamma1), kind_of_term funct_var_ctx (expr2,gamma2)) with
+   | (IsCallExtern (f1,ty1,v1,k1), IsCallExtern (f2,ty2,v2,k2)) when f1 = f2 -> Some (ty1,(k1,gamma1),(v1,gamma1),(k2,gamma2),(v2,gamma2))
    | _ -> None
 
   
@@ -108,56 +108,58 @@ let rec mix_lists g list1 = function
   
 
 let rec symb_val = function
-  | TUnit -> [(Unit,Unit,[])]
-  | TBool -> [(Bool true,Bool true,[]);(Bool false, Bool false,[])]
+  | TUnit -> [(Unit,empty_pmap,empty_pmap)]
+  | TBool -> [(Bool true,empty_pmap,[]);(Bool false,empty_pmap,[])]
   | TInt -> let x = (Logic.fresh_lvar ()) in
-            [(Var x, Var x, [(x,TInt)])]
-  | (TArrow (_,_)) as ty -> let x = Logic.fresh_lvar () in  [(Var x, Var x, [(x,ty)])]
+            [(Var x, empty_pmap, [(x,TInt)])]
+  | (TArrow (_,_)) as ty -> let x = Logic.fresh_lvar () in  [(Var x, [(x,ty)],empty_pmap)]
   | TProd (ty1,ty2) -> let result1 = symb_val ty1 in
                        let result2 = symb_val ty2 in
-                       let g = fun ((vall1,valr1,logenvc1),(vall2,valr2,logenvc2)) -> 
-                          (Pair (vall1,vall2), Pair (valr1, valr2), logenvc1@logenvc2) in
+                       let g = fun ((val1,funct_var_ctx1,ground_var_ctx1),(val2,funct_var_ctx2,ground_var_ctx2)) -> 
+                          (Pair (val1,val2), funct_var_ctx1@funct_var_ctx2, ground_var_ctx1@ground_var_ctx2) in
                        mix_lists g result1 result2
   | TRef _ -> failwith "Error: Types with occurencences of ref subtypes are not supported."                    
                     
                        
 let rec build_tc_rule hist sequent = 
-  match (trivially_false sequent.logctx, sequent.formula) with
-  | (true,_) -> print_endline ("Stop : " ^ (string_of_arith_pred (AAnd sequent.logctx)));   
-                Stop sequent
-  | (_,RelV (TArrow (ty1,ty2), cb_context, expr1, expr2, gamma1, gamma2)) ->
-    print_endline ("RuleVA : " ^ (string_of_exprML expr1) ^ " and " ^ (string_of_exprML expr2));     
+  match (trivially_false sequent.arith_ctx, sequent.formula) with
+  | (true,_) -> Stop sequent
+  | (_,RelV (TArrow (ty1,ty2), funct_var_ctx, (expr1,gamma1), (expr2,gamma2))) ->  
           let result = symb_val ty1 in 
-          let f = fun (sval_l,sval_r,cb_context') ->  new_sequent sequent [] [] [] [] (RelE (ty2, (cb_context @ cb_context'), (App (expr1,sval_l)),(App (expr2,sval_r)), gamma1, gamma2)) in
+          let f = fun (sval,funct_var_ctx',ground_var_ctx') ->  
+                      new_sequent sequent ground_var_ctx' (RelE (ty2, (funct_var_ctx @ funct_var_ctx'), (App (expr1,sval),gamma1),(App (expr2,sval),gamma2))) in
           let premises = List.map (build_tc_rule hist) (List.map f result) in
           RuleV (premises,sequent)
-  | (_,RelV (TProd (ty1,ty2), cb_context, Pair (v11, v12), Pair (v21, v22), gamma1, gamma2)) ->
-          let skor1 = RelV (ty1,cb_context,v11,v21,gamma1,gamma2) in
-          let skor2 = RelV (ty2,cb_context,v12,v22,gamma1,gamma2) in
-                let tc1 = build_tc_rule hist (new_sequent sequent [] [] [] [] skor1) in
-                let tc2 = build_tc_rule hist (new_sequent sequent [] [] [] [] skor2) in            
+          
+  | (_,RelV (TProd (ty1,ty2), funct_var_ctx, (Pair (v11, v12), gamma1), (Pair (v21, v22), gamma2))) ->
+          let skor1 = RelV (ty1,funct_var_ctx,(v11,gamma1),(v21,gamma2)) in
+          let skor2 = RelV (ty2,funct_var_ctx,(v12,gamma1),(v22,gamma2)) in
+                let tc1 = build_tc_rule hist (new_sequent sequent [] skor1) in
+                let tc2 = build_tc_rule hist (new_sequent sequent [] skor2) in            
           RuleVProd ((tc1,tc2), sequent)
-  | (_,RelV (_, _, expr1, expr2, gamma1, gamma2)) -> RuleVG sequent
+          
+  | (_,RelV (_, _, _, _)) -> RuleVG sequent
   
-  | (_,RelSE (ty, cb_context, expr1, expr2, gamma1, gamma2)) ->
-      print_endline ("RuleSE : " ^ (string_of_exprML expr1) ^ " and " ^ (string_of_exprML expr2));  
-       begin match (get_elem_callexts cb_context (expr1,gamma1) (expr2,gamma2)) with
-            | Some (TArrow (ty1,ty2),k1,v1,k2,v2) -> 
-                let skorv = RelV (ty1,cb_context,v1,v2,gamma1,gamma2) in
-                let skork = RelK (ty2,ty,cb_context,k1,k2,gamma1,gamma2) in
-                let tcv = build_tc_rule hist (new_sequent sequent [] [] [] [] skorv) in
-                let tck = build_tc_rule hist (new_sequent sequent [] [] [] [] skork) in                
+  | (_,RelSE (ty, funct_var_ctx, fexpr1, fexpr2)) -> 
+       begin match (get_elem_callexts funct_var_ctx fexpr1 fexpr2) with
+            | Some (TArrow (ty1,ty2),fk1,fv1,fk2,fv2) -> 
+                let skorv = RelV (ty1,funct_var_ctx,fv1,fv2) in
+                let skork = RelK (ty2,ty,funct_var_ctx,fk1,fk2) in
+                let tcv = build_tc_rule hist (new_sequent sequent [] skorv) in
+                let tck = build_tc_rule hist (new_sequent sequent [] skork) in                
                 RuleSext ((tcv,tck),sequent)
-            | None -> print_endline ("Stop in RelSE : " ^ (string_of_exprML expr1) ^ " and " ^ (string_of_exprML expr2)); Stop sequent   
-        end        
-  | (_,RelK (ty1, ty2, cb_context, ctx1, ctx2, gamma1, gamma2)) ->
-    print_endline ("RuleK : " ^ (string_of_exprML ctx1) ^ " and " ^ (string_of_exprML ctx2));   
+            | None -> Stop sequent
+            | _ -> failwith "Error, trying to prove RelSE on a non-functional type"
+        end
+        
+  | (_,RelK (ty1, ty2, funct_var_ctx, (ctx1,gamma1), (ctx2,gamma2))) -> 
           let result = symb_val ty1 in 
-          let f = fun (sval_l,sval_r,logenv_c) ->  
-                       new_sequent sequent logenv_c [] [] []
-                       (RelE (ty2,cb_context, (fill_hole ctx1 sval_l),(fill_hole ctx2 sval_r), gamma1, gamma2)) in
+          let f = fun (sval,funct_var_ctx',ground_var_ctx') ->  
+                       new_sequent sequent ground_var_ctx' 
+                       (RelE (ty2,funct_var_ctx @ funct_var_ctx', (fill_hole ctx1 sval,gamma1),(fill_hole ctx2 sval,gamma2))) in
           let premises = List.map (build_tc_rule hist) (List.map f result) in
           RuleK (premises,sequent)
+          
 (*  | (_,RelSI (ty, expr1, expr2, gamma1, gamma2)) ->  
      begin match (kind_of_term sequent.logenvc gamma1 expr1,kind_of_term sequent.logenvc gamma2 expr2,sequent.index) with
        | (IsCallIntern _, _,0) -> print_endline ("LOut : " ^ (string_of_arith_pred (AAnd sequent.logctx)) ^ " and " ^ (string_of_exprML expr1) ^ " and " ^ (string_of_exprML expr2)); LOut sequent
@@ -192,43 +194,33 @@ let rec build_tc_rule hist sequent =
          Unfold (new_tc,sequent)
        | (_,_,_) -> failwith "RelSI is applied on terms which are not recursive calls"   
      end   *) 
-  | (_,RelE (ty, cb_context, expr1, expr2, gamma1, gamma2)) ->
-         print_endline ("RelE : " ^ (string_of_exprML expr1) ^ " and " ^ (string_of_exprML expr2));         
-         let result1 = Symb_red.symbred_trans [] [] [] expr1 [] [] in
-         let result2 = Symb_red.symbred_trans [] [] [] expr2 [] [] in
-         let build_tc_rule_expr (expr1,expr2,gamma1,gamma2,heapPre1,heapPre2,heapPost1,heapPost2,vars,preds) = 
-           begin match (select_tag cb_context (expr1,gamma1) (expr2,gamma2)) with
-             | WB -> let skor' = RelV (ty,cb_context,expr1,expr2,gamma1,gamma2) in
-                     build_tc_rule hist (new_sequent sequent vars [] [] preds ~annot:(Some (AnnotHeap (WB,heapPre1,heapPre2,heapPost1,heapPost2))) skor')            
-             | Extern -> let skor' = RelSE (ty,cb_context,expr1,expr2,gamma1,gamma2) in
-                   build_tc_rule hist (new_sequent sequent vars [] [] preds ~annot:(Some (AnnotHeap (Extern,heapPre1,heapPre2,heapPost1,heapPost2))) skor')
+  | (_,RelE (ty, funct_var_ctx, fexpr1, fexpr2)) ->       
+         let result1 = Symb_red.symbred_trans fexpr1 [] [] [] [] in
+         let result2 = Symb_red.symbred_trans fexpr2 [] [] [] [] in
+         let build_tc_rule_expr (fexpr1,fexpr2,heapPre1,heapPre2,heapPost1,heapPost2,vars,preds) = 
+           begin match (select_tag funct_var_ctx fexpr1 fexpr2) with
+             | WB -> let skor' = RelV (ty,funct_var_ctx,fexpr1,fexpr2) in
+                     build_tc_rule hist (new_sequent sequent vars ~arith_ctx:preds ~annot:(Some (AnnotHeap (WB,heapPre1,heapPre2,heapPost1,heapPost2))) skor')            
+             | Extern -> let skor' = RelSE (ty,funct_var_ctx,fexpr1,fexpr2) in
+                   build_tc_rule hist (new_sequent sequent vars ~arith_ctx:preds ~annot:(Some (AnnotHeap (Extern,heapPre1,heapPre2,heapPost1,heapPost2))) skor')
              | Intern -> 
-                   let skor' = RelSI (ty,cb_context,expr1,expr2,gamma1,gamma2) in
-                   build_tc_rule hist (new_sequent sequent vars [] [] preds ~annot:(Some (AnnotHeap (Intern,heapPre1,heapPre2,heapPost1,heapPost2))) skor')                
-             | Wrong -> print_endline ("Stop in RelE : " ^ (string_of_exprML expr1) ^ " and " ^ (string_of_exprML expr2)); Stop sequent      
+                   let skor' = RelSI (ty,funct_var_ctx,fexpr1,fexpr2) in
+                   build_tc_rule hist (new_sequent sequent vars  ~arith_ctx:preds ~annot:(Some (AnnotHeap (Intern,heapPre1,heapPre2,heapPost1,heapPost2))) skor')                
+             | Wrong -> Stop sequent      
            end      
-         in let g = fun ((expr1,gamma1',heapPre1,heapPost1,vars1,preds1),(expr2,gamma2',heapPre2,heapPost2,vars2,preds2)) 
-                    -> (expr1,expr2,gamma1'@gamma1,gamma2'@gamma2,heapPre1,heapPre2,heapPost1,heapPost2,(vars1@vars2),(preds1@preds2)) in
+         in let g = fun ((fexpr1,heapPre1,heapPost1,vars1,preds1),(fexpr2,heapPre2,heapPost2,vars2,preds2)) 
+                    -> (fexpr1,fexpr2,heapPre1,heapPre2,heapPost1,heapPost2,(vars1@vars2),(preds1@preds2)) in
          RuleE (List.map build_tc_rule_expr (mix_lists g result1 result2),sequent)
 
 let diff list1 list2 = List.filter (fun x -> not ((List.mem x) list1)) list2
          
-let newelem_of_sequents prev_sequent sequent = (diff prev_sequent.logctx sequent.logctx,diff prev_sequent.logenvc sequent.logenvc)
+let newelem_of_sequents prev_sequent sequent = (diff prev_sequent.arith_ctx sequent.arith_ctx,diff prev_sequent.ground_var_ctx sequent.ground_var_ctx)
 
-let newgroundelem_of_sequents prev_sequent sequent = 
-  let aux (_,ty) = match ty with
-    | TArrow _ -> false
-    | _ -> true
-  in  
-  let env = diff prev_sequent.logenvc sequent.logenvc in
-  let env' = List.filter aux env in
-  let preds = diff prev_sequent.logctx sequent.logctx in   
-  (env',preds)  
 
 let extract_pred_from_vg sequent = 
     match sequent.formula with
-        | RelV (TUnit,_,_,_,_,_)  -> ATrue      
-        | RelV (TBool,_,Bool b1, Bool b2,_,_) when b1 = b2 -> ATrue
-        | RelV (TBool,_,Bool b1, Bool b2,_,_) -> AFalse
-        | RelV (TInt,_,v1, v2,_,_) -> (AEqual (AExpr v1,AExpr v2))
+        | RelV (TUnit,_,_,_)  -> ATrue      
+        | RelV (TBool,_,(Bool b1,_), (Bool b2,_)) when b1 = b2 -> ATrue
+        | RelV (TBool,_,(Bool b1,_), (Bool b2,_)) -> AFalse
+        | RelV (TInt,_,(v1,_), (v2,_)) -> (AEqual (AExpr v1,AExpr v2))
         | _ -> failwith "Error: The rule VG has been used on a non-ground type."  

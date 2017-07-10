@@ -76,7 +76,7 @@ let rec simplify_temp_formula = function
 
 let rec tformula_of_tc = function
   | RuleVG sequent -> TPred (extract_pred_from_vg sequent)
-  | Stop sequent -> TPred (negate_arith_pred (AAnd sequent.logctx))
+  | Stop sequent -> TPred (negate_arith_pred (AAnd sequent.arith_ctx))
   | LOut _ -> TPred ATrue
   | ROut _ -> TPred AFalse
   | RuleSext ((tc1,tc2),sequent) | RuleVProd ((tc1,tc2),sequent) -> TAnd [(tformula_of_tc tc1); (tformula_of_tc tc2)]

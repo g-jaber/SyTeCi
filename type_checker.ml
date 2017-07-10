@@ -49,3 +49,4 @@ let rec typing vctx lctx expr = match expr with
                         | (TRef ty1,ty2) when ty1 = ty2 -> TUnit
                         | (ty,_) -> raise (TypingError ("Error typing " ^ (Syntax.string_of_exprML expr) ^ " : " ^ (string_of_typeML ty) ^ " is not a ref type"))
                       end
+  | Hole -> failwith ("Error: The typechecker cannot type a hole")                    

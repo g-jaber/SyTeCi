@@ -1,4 +1,4 @@
-type 'a pmap = (Syntax.id*'a) list
+type ('a,'b) pmap = ('a*'b) list
 
 let empty_pmap = []
 

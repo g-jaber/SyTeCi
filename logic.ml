@@ -5,8 +5,6 @@ let rec iter n f x = match n with
   | 0 ->  x
   | _ -> let y = f x in iter (n-1) f y
 
-type symbheap =  Syntax.exprML pmap
-
 let count_locvar = ref 0
 let fresh_locvar () = 
   let l = !count_locvar in
@@ -114,6 +112,5 @@ let rec string_of_arith_pred = function
   | (l,v)::heap -> l ^ " -> " ^ (Syntax.string_of_exprML v) ^ "," ^ (string_of_heap heap)*)
          
       
-let rec string_of_vars = string_of_pmap ":" string_of_typeML
 
       

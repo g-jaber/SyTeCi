@@ -2,9 +2,7 @@ open Syntax
 open Logic
 open Pmap
 
-let rec string_of_env = string_of_pmap "->" string_of_exprML
 
- 
 let add_locvar heap v = let l = fresh_locvar () in (l,(l,v)::heap)  
 
 let aux g (a,b,c,d,e,f) = (g a,b,c,d,e,f)
@@ -70,7 +68,7 @@ let rec symbred heapPost expr = match expr with
                   let heapPre = [(l,Var x)] in ([(Unit,[],heapPre,modadd_pmap l expr2 heapPost,[(x,TInt)], [])],true)
       end            
   | Assign (expr1,expr2) ->  aux_bin_red (symbred heapPost) (fun (x,y) -> Assign (x,y)) (expr1,expr2)
-  | If (Bool b,expr1,expr2) -> if b then ([(expr1,[],[],heapPost,[], [])],true) else ([(expr2,[],[],heapPost,[], [])],true)
+(*  | If (Bool b,expr1,expr2) -> if b then ([(expr1,[],[],heapPost,[], [])],true) else ([(expr2,[],[],heapPost,[], [])],true) *)
   | If ((Var x),expr1,expr2) -> ([(expr1,[],[],heapPost,[],[AEqual (AExpr(Var x),AExpr(Bool true))]);(expr2,[],[],heapPost,[],[AEqual (AExpr(Var x),AExpr(Bool false))])],true) (* Is this case needed *)
   | If (expr,expr1,expr2) -> let (result,b) = symbred heapPost expr in (List.map (aux (fun x -> (If (x,expr1,expr2)))) result,b)
   | Plus _ | Minus _ | Mult _ | Div _ -> aux_bin_arith expr heapPost (symbred heapPost)
@@ -82,8 +80,8 @@ let rec symbred heapPost expr = match expr with
   | _ -> ([(expr,[],[],heapPost,[], [])],false)
   
   
-let rec symbred_trans env heapPre heapPost expr vars preds =
-  let aux (expr',env',heapPre',heapPost',vars',preds') = (expr',env'@env,heapPre'@heapPre,heapPost',vars'@vars,preds'@preds) in
+let rec symbred_trans (expr,gamma) heapPre heapPost vars preds =
+  let aux (expr',gamma',heapPre',heapPost',vars',preds') = ((expr',gamma'@gamma),heapPre'@heapPre,heapPost',vars'@vars,preds'@preds) in
   let (result,b) = symbred heapPost expr in
   if (not b) then List.map aux result 
-  else List.flatten (List.map (fun (expr',env',heapPre',heapPost',vars',preds') -> symbred_trans (env'@env) (heapPre'@heapPre) heapPost' expr' (vars'@vars) (preds'@preds)) result) 
+  else List.flatten (List.map (fun (expr',gamma',heapPre',heapPost',vars',preds') -> symbred_trans (expr',gamma'@gamma) (heapPre'@heapPre) heapPost' (vars'@vars) (preds'@preds)) result) 

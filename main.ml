@@ -35,7 +35,7 @@ let () =
         print_string ("Second Program");
         print_newline ();
         let (expr2,ty2) = get_term filename2 in
-        let tc = build_tc_rule [] (emptyctx_sequent (RelE (ty1,[],expr1,expr2,[],[])) 0 0) in (*(int_of_string Sys.argv.(3))) in *)        
+        let tc = build_tc_rule [] (emptyctx_sequent (RelE (ty1,[],(expr1,[]),(expr2,[]))) 0 0) in (*(int_of_string Sys.argv.(3))) in *)        
         let tc' = extract_temporal tc in
         let temp_form = iter 10 simplify_temp_formula (tformula_of_tc tc') in   
         print_endline ("Temporal Formula:");

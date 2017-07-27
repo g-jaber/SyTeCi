@@ -2,11 +2,13 @@ open Syntax
 open Logic
 open Skor
 open Tcstruct
+open Unif
 
 (* Temporal Logic *) 
 
+let get_svar n = "X" ^ (string_of_int n)
+
 type modality =
-  | Null
   | Square
   | SquarePub
   | NextWB of symbheap*symbheap*symbheap*symbheap    
@@ -20,20 +22,18 @@ type temp_formula =
   | TAnd of temp_formula list
   | TImpl of (arith_pred list)*temp_formula
   | TForAll of ((id*typeML) list*temp_formula)
+  | GFix of id * gsubst * temp_formula
+  | SVar of id * gsubst
 
 
-let modality_from_annot = function
-  | Some (AnnotHeap (tag,h1,h2,h3,h4)) ->
-      begin match tag with
+let modality_from_annot (tag,h1,h2,h3,h4) =
+      match tag with
         | Intern -> NextI (h1,h2,h3,h4)
         | Extern -> NextE (h1,h2,h3,h4)
         | WB -> NextWB (h1,h2,h3,h4)
-        | Wrong -> failwith "Error: Cannot create a modality from the tag Wrong."
-      end
-  | _  -> failwith "Error: Cannot create a modality from an annotation not coming from RuleE."   
+        | Wrong -> failwith "Error: Cannot create a modality from the tag Wrong."  
     
 let rec string_of_modality = function
-  | Null -> ""
   | Square -> "▫V"
   | SquarePub -> "▫K"
   | NextE (heapPre1,heapPre2,heapPost1,heapPost2) ->
@@ -48,16 +48,16 @@ let rec string_of_modality = function
 
 let rec string_of_temp_formula = function
   | TPred pred -> string_of_arith_pred pred
-  | Mod (Null,formula) -> string_of_temp_formula formula
   | Mod (m,formula) -> (string_of_modality m) ^ "(" ^ (string_of_temp_formula formula) ^ ")"
   | TAnd  preds-> string_of_conj  " /\\ " string_of_temp_formula preds 
   | TImpl (preds,formula) -> (string_of_conj " /\\ " string_of_arith_pred preds) ^ " => " ^ (string_of_temp_formula formula)
-  | TForAll (vars,formula) -> "∀" ^ (string_of_vars vars) ^ ", " ^ (string_of_temp_formula formula)  
+  | TForAll (vars,formula) -> "∀" ^ (string_of_vars vars) ^ ", " ^ (string_of_temp_formula formula)
+  | GFix (x,rho, formula) -> "nu " ^ x ^ "(" ^ (string_of_gsubst rho) ^ ")." ^ (string_of_temp_formula formula)  
+  | SVar (x,rho) -> x ^ "(" ^ (string_of_gsubst rho) ^ ")"  
 
  
-let rec simplify_temp_formula = function
-  | TPred pred -> TPred (simplify_arith_pred pred)
-  | Mod (Null,formula) -> simplify_temp_formula formula  
+let rec simplify_temp_formula formula = match formula with
+  | TPred pred -> TPred (simplify_arith_pred pred) 
   | Mod (m,formula) -> Mod (m,simplify_temp_formula formula)
   | TAnd [] -> TPred ATrue
   | TAnd [formula] -> simplify_temp_formula formula
@@ -72,7 +72,8 @@ let rec simplify_temp_formula = function
       TImpl (preds',simplify_temp_formula formula)
   | TForAll ([],formula) -> simplify_temp_formula formula
   | TForAll (vars,formula) -> TForAll (vars,simplify_temp_formula formula)
-  | p -> p
+  | GFix (x,rho, formula) -> GFix (x,rho, simplify_temp_formula formula)
+  | SVar _ -> formula   
 
 let rec tformula_of_tc = function
   | RuleVG sequent -> TPred (extract_pred_from_vg sequent)
@@ -92,8 +93,14 @@ let rec tformula_of_tc = function
         Mod (Square, TForAll (vars, tformula_of_tc new_tc))
       in TAnd (List.map aux tcs)  
   | RuleE (tcs,sequent) ->
-        let aux new_tc =
-        let (preds,vars) = newelem_of_sequents sequent (get_root new_tc) in
-        TForAll (vars, TImpl (preds, Mod (modality_from_annot (get_root new_tc).annot,  tformula_of_tc new_tc)))
-        in TAnd (List.map aux tcs)   
+        let aux (annot,tc') =
+          let (preds,vars) = newelem_of_sequents sequent (get_root tc') in
+          TForAll (vars, TImpl (preds, Mod (modality_from_annot annot,  tformula_of_tc tc')))
+        in TAnd (List.map aux tcs)
+  | Circ (rho,backsequent,sequent) ->
+       let svar = get_svar backsequent.id in
+       SVar (svar, rho)
+  | Gen (rho,tc,sequent) ->
+       let svar = get_svar ((get_root tc).id) in
+       GFix (svar, rho, tformula_of_tc tc)          
   

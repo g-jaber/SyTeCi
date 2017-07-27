@@ -68,8 +68,8 @@ let rec symbred heapPost expr = match expr with
                   let heapPre = [(l,Var x)] in ([(Unit,[],heapPre,modadd_pmap l expr2 heapPost,[(x,TInt)], [])],true)
       end            
   | Assign (expr1,expr2) ->  aux_bin_red (symbred heapPost) (fun (x,y) -> Assign (x,y)) (expr1,expr2)
-(*  | If (Bool b,expr1,expr2) -> if b then ([(expr1,[],[],heapPost,[], [])],true) else ([(expr2,[],[],heapPost,[], [])],true) *)
-  | If ((Var x),expr1,expr2) -> ([(expr1,[],[],heapPost,[],[AEqual (AExpr(Var x),AExpr(Bool true))]);(expr2,[],[],heapPost,[],[AEqual (AExpr(Var x),AExpr(Bool false))])],true) (* Is this case needed *)
+  | If (Bool b,expr1,expr2) -> if b then ([(expr1,[],[],heapPost,[], [])],true) else ([(expr2,[],[],heapPost,[], [])],true)
+  | If ((Var x),expr1,expr2) -> failwith "Error: Boolean variables are not allowed in the symbolic reduction"
   | If (expr,expr1,expr2) -> let (result,b) = symbred heapPost expr in (List.map (aux (fun x -> (If (x,expr1,expr2)))) result,b)
   | Plus _ | Minus _ | Mult _ | Div _ -> aux_bin_arith expr heapPost (symbred heapPost)
   | And _ | Or _ -> aux_bin_bool expr heapPost (symbred heapPost)

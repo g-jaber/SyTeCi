@@ -2,6 +2,7 @@ open Logic
 open Syntax
 open Pmap
 open Skor
+open Unif
 
 
 type kindTerm = IsVal | IsCallExtern of (id*typeML*exprML*eval_context) | IsRecCall of (id*exprML*exprML*eval_context)
@@ -31,7 +32,7 @@ let get_elem_callexts funct_var_ctx (expr1,gamma1) (expr2,gamma2) =
    | (IsCallExtern (f1,ty1,v1,k1), IsCallExtern (f2,ty2,v2,k2)) when f1 = f2 -> Some (ty1,(k1,gamma1),(v1,gamma1),(k2,gamma2),(v2,gamma2))
    | _ -> None
 
-  
+type annot_rele = tag*symbheap*symbheap*symbheap*symbheap  
 
 type tc_struct = 
   | Stop of sequent
@@ -45,9 +46,10 @@ type tc_struct =
   | Unfold of tc_struct*sequent
   | LUnfold of tc_struct*sequent
   | RUnfold of tc_struct*sequent  
-  | RuleE of (tc_struct list)*sequent
+  | RuleE of ((annot_rele*tc_struct) list)*sequent
   | Rewrite of tc_struct*sequent
-  | Circ of sequent*sequent  
+  | Circ of gsubst*sequent*sequent
+  | Gen of gsubst*tc_struct*sequent    
 
 let get_root = function
   | Stop sequent -> sequent    
@@ -63,23 +65,8 @@ let get_root = function
   | RUnfold (_,sequent) -> sequent  
   | RuleE (_,sequent) -> sequent
   | Rewrite (_,sequent) -> sequent
-  | Circ (_,sequent) -> sequent  
-  
-let rec extract_temporal tc = match tc with
-  | Stop sequent -> tc
-  | RuleVG _ -> tc
-  | RuleVProd ((tc1,tc2),sequent) -> RuleVProd ((extract_temporal tc1,extract_temporal tc2),sequent)    
-  | LOut sequent -> tc
-  | ROut sequent -> tc  
-  | RuleV (tcs,sequent) ->  RuleV (List.map extract_temporal tcs,sequent)
-  | RuleK (tcs,sequent) -> RuleK (List.map extract_temporal tcs,sequent)
-  | RuleSext ((tc1,tc2),sequent) -> RuleSext ((extract_temporal tc1,extract_temporal tc2),sequent)  
-  | Unfold (tc',sequent) ->  Unfold (extract_temporal tc',sequent)
-  | LUnfold (tc',sequent) -> LUnfold (extract_temporal tc',sequent)
-  | RUnfold (tc',sequent) -> RUnfold (extract_temporal tc',sequent)
-  | RuleE (tcs,sequent) -> RuleE (List.map extract_temporal tcs,sequent)
-  | Rewrite (tc',sequent) -> Rewrite (extract_temporal tc',sequent)
-  | Circ (_,sequent) -> failwith "Not supported yet"  
+  | Circ (_,_,sequent) -> sequent 
+  | Gen (_,_,sequent) -> sequent  
 
 let rec string_of_list = function
   | [] -> ""
@@ -98,9 +85,10 @@ let rec string_of_tc = function
   | Unfold (tc',sequent) ->  "Unfold (" ^ (string_of_tc tc') ^")"
   | LUnfold (tc',sequent) -> "LUnfold (" ^ (string_of_tc tc') ^")"
   | RUnfold (tc',sequent) -> "RUnfold (" ^ (string_of_tc tc') ^")"
-  | RuleE (tcs,sequent) -> "RuleE (" ^ (string_of_list (List.map string_of_tc tcs)) ^")"
+  | RuleE (tcs,sequent) -> "RuleE (" ^ (string_of_list (List.map (fun (_,tc) -> (string_of_tc tc)) tcs)) ^")"
   | Rewrite (tc',sequent) -> "Rewrite (" ^ (string_of_tc tc')  ^")"
-  | Circ (_,sequent) -> "Circ "  
+  | Circ (_,_,sequent) -> "Circ "
+  | Gen (_,tc,sequent) -> "Gen (" ^ (string_of_tc tc) ^ ")"    
   
 let rec mix_lists g list1 = function
   | [] -> []
@@ -160,53 +148,54 @@ let rec build_tc_rule hist sequent =
           let premises = List.map (build_tc_rule hist) (List.map f result) in
           RuleK (premises,sequent)
           
-(*  | (_,RelSI (ty, expr1, expr2, gamma1, gamma2)) ->  
-     begin match (kind_of_term sequent.logenvc gamma1 expr1,kind_of_term sequent.logenvc gamma2 expr2,sequent.index) with
-       | (IsCallIntern _, _,0) -> print_endline ("LOut : " ^ (string_of_arith_pred (AAnd sequent.logctx)) ^ " and " ^ (string_of_exprML expr1) ^ " and " ^ (string_of_exprML expr2)); LOut sequent
-       | (_, IsCallIntern _,0) -> print_endline ("LOut : " ^ (string_of_arith_pred (AAnd sequent.logctx)) ^ " and " ^ (string_of_exprML expr1) ^ " and " ^ (string_of_exprML expr2)); LOut sequent          
-       | (IsCallIntern (f1,body1,val1,ctx1), IsCallIntern (f2,body2,val2,ctx2),k) ->
-         print_endline ("Unfold : " ^ (string_of_exprML expr1) ^ " and " ^ (string_of_exprML expr2));       
-         let ctx1' = iter 3 (Unif.rewrite_ac (sequent.logenvc@sequent.logenvl)) ctx1 in
+  | (_,RelSI (ty, funct_var_ctx, (expr1,gamma1), (expr2,gamma2))) ->  
+     begin match (kind_of_term funct_var_ctx (expr1,gamma1),kind_of_term funct_var_ctx (expr2,gamma2),sequent.j,sequent.k) with
+       | (IsRecCall _, _,0,_) -> LOut sequent
+       | (_, IsRecCall _,_,0) -> ROut sequent          
+       | (IsRecCall (f1,body1,val1,ctx1), IsRecCall (f2,body2,val2,ctx2),j,k) ->     
+(*         let ctx1' = iter 3 (Unif.rewrite_ac (sequent.logenvc@sequent.logenvl)) ctx1 in
          let ctx2' = iter 3 (Unif.rewrite_ac (sequent.logenvc@sequent.logenvr)) ctx2 in
          print_endline ("From : " ^ (string_of_exprML expr1) ^ " to " ^ (string_of_exprML (fill_hole ctx1' (App (Var f1,val1)))));
-         print_endline ("From : " ^ (string_of_exprML expr2) ^ " to " ^ (string_of_exprML (fill_hole ctx2' (App (Var f2,val2)))));          
-         let sequent' = new_sequent sequent [] [] [] [] (RelSI (ty,fill_hole ctx1' (App (Var f1,val1)),fill_hole ctx2' (App (Var f2,val2)),gamma1,gamma2)) in
-         let hist' = sequent'::hist in         
-         begin match (Unif.unif_in_hist sequent' hist) with
+         print_endline ("From : " ^ (string_of_exprML expr2) ^ " to " ^ (string_of_exprML (fill_hole ctx2' (App (Var f2,val2))))); *)         
+         let sequent' = new_sequent sequent [] ~j:(j-1) ~k:(k-1) (RelSI (ty, funct_var_ctx, (fill_hole ctx1 (App (Var f1,val1)),gamma1), (fill_hole ctx2 (App (Var f2,val2)),gamma2))) in
+         let hist' = sequent'::hist in
+         let premise = build_tc_rule hist' sequent'
+         in Unfold (premise,sequent)
+(*         begin match (Unif.unif_in_hist sequent' hist) with
            | Some (circ_sequent,_,_) -> print_endline ("Circ ! "); Circ (circ_sequent,sequent')
            | None -> let expr1' = fill_hole ctx1' (App (body1,val1)) in
                      let expr2' = fill_hole ctx2' (App (body2,val2)) in
-                     let formula = RelE (ty,expr1',expr2',gamma1,gamma2) in
-                     let new_tc = build_tc_rule hist' (new_sequent sequent [] [] [] [] ?index:(Some (k-1)) formula) in
-                     Rewrite (Unfold (new_tc,sequent'),sequent)
-         end          
-       | (IsCallIntern (f1,body1,val1,ctx1), _,k) -> 
+                     let sequent' = RelE (ty,expr1',expr2',gamma1,gamma2) in
+                     let premise = build_tc_rule hist' (new_sequent sequent [] [] [] [] ?index:(Some (k-1)) sequent') in
+                    Rewrite (Unfold (premise,sequent'),sequent)
+         end     *)     
+       | (IsRecCall (f1,body1,val1,ctx1), _,j,_) -> 
          print_endline ("LUnfold : " ^ (string_of_exprML expr1) ^ " and " ^ (string_of_exprML expr2));
          let expr1' = fill_hole ctx1 (App (body1,val1)) in
-         let formula = RelE (ty,expr1',expr2,gamma1,gamma2) in
-         let new_tc = build_tc_rule hist (new_sequent sequent [] [] [] [] ?index:(Some (k-1)) formula) in
-         LUnfold (new_tc,sequent)
-       | (_, IsCallIntern (f2,body2,val2,ctx2),k) ->
+         let sequent' = new_sequent sequent [] ~j:(j-1)  (RelE (ty,funct_var_ctx,(expr1',gamma1),(expr2,gamma2))) in
+         let premise = build_tc_rule hist sequent' in
+         LUnfold (premise,sequent)
+       | (_, IsRecCall (f2,body2,val2,ctx2),_,k) ->
          print_endline ("RUnfold : " ^ (string_of_exprML expr1) ^ " and " ^ (string_of_exprML expr2));       
          let expr2' = fill_hole ctx2 (App (body2,val2)) in
-         let formula = RelE (ty,expr1,expr2',gamma1,gamma2) in
-         let new_tc = build_tc_rule hist (new_sequent sequent [] [] [] [] ?index:(Some (k-1)) formula) in
-         Unfold (new_tc,sequent)
-       | (_,_,_) -> failwith "RelSI is applied on terms which are not recursive calls"   
-     end   *) 
+         let sequent' = RelE (ty,funct_var_ctx,(expr1,gamma1),(expr2',gamma2)) in
+         let premise = build_tc_rule hist (new_sequent sequent [] ~k:(k-1) sequent') in
+         Unfold (premise,sequent)
+       | (_,_,_,_) -> failwith "RelSI is applied on terms which are not recursive calls"   
+     end
   | (_,RelE (ty, funct_var_ctx, fexpr1, fexpr2)) ->       
          let result1 = Symb_red.symbred_trans fexpr1 [] [] [] [] in
          let result2 = Symb_red.symbred_trans fexpr2 [] [] [] [] in
          let build_tc_rule_expr (fexpr1,fexpr2,heapPre1,heapPre2,heapPost1,heapPost2,vars,preds) = 
            begin match (select_tag funct_var_ctx fexpr1 fexpr2) with
              | WB -> let skor' = RelV (ty,funct_var_ctx,fexpr1,fexpr2) in
-                     build_tc_rule hist (new_sequent sequent vars ~arith_ctx:preds ~annot:(Some (AnnotHeap (WB,heapPre1,heapPre2,heapPost1,heapPost2))) skor')            
+                     ((WB,heapPre1,heapPre2,heapPost1,heapPost2),build_tc_rule hist (new_sequent sequent vars ~arith_ctx:preds skor'))            
              | Extern -> let skor' = RelSE (ty,funct_var_ctx,fexpr1,fexpr2) in
-                   build_tc_rule hist (new_sequent sequent vars ~arith_ctx:preds ~annot:(Some (AnnotHeap (Extern,heapPre1,heapPre2,heapPost1,heapPost2))) skor')
+                   ((Extern,heapPre1,heapPre2,heapPost1,heapPost2),build_tc_rule hist (new_sequent sequent vars ~arith_ctx:preds skor'))
              | Intern -> 
                    let skor' = RelSI (ty,funct_var_ctx,fexpr1,fexpr2) in
-                   build_tc_rule hist (new_sequent sequent vars  ~arith_ctx:preds ~annot:(Some (AnnotHeap (Intern,heapPre1,heapPre2,heapPost1,heapPost2))) skor')                
-             | Wrong -> Stop sequent      
+                   ((Intern,heapPre1,heapPre2,heapPost1,heapPost2),build_tc_rule hist (new_sequent sequent vars  ~arith_ctx:preds skor'))                
+             | Wrong -> ((Wrong,heapPre1,heapPre2,heapPost1,heapPost2),Stop sequent)      
            end      
          in let g = fun ((fexpr1,heapPre1,heapPost1,vars1,preds1),(fexpr2,heapPre2,heapPost2,vars2,preds2)) 
                     -> (fexpr1,fexpr2,heapPre1,heapPre2,heapPost1,heapPost2,(vars1@vars2),(preds1@preds2)) in

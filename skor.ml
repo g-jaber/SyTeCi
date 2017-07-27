@@ -1,6 +1,7 @@
 open Syntax
 open Pmap
 open Logic
+open Unif
 
 
 (* -------- SKORs ---------- *) 
@@ -39,9 +40,6 @@ type arith_ctx = arith_pred list
 
 type id_sequent = int
 
-type annotation =
-  | AnnotHeap  of tag*symbheap*symbheap*symbheap*symbheap 
-
 let count_id_sequent = ref 0
 let fresh_id_sequent () = 
   let x = !count_id_sequent in
@@ -53,13 +51,12 @@ type sequent = { id : id_sequent;
                  arith_ctx : arith_ctx;
                  j : int;
                  k : int;                 
-                 annot : annotation option;
                  formula : formula
                }
                
 let emptyctx_sequent formula j k =
-  { id = fresh_id_sequent (); ground_var_ctx = []; alpha = []; arith_ctx = []; j = j; k = k; annot = None; formula = formula }               
+  { id = fresh_id_sequent (); ground_var_ctx = []; alpha = []; arith_ctx = []; j = j; k = k; formula = formula }               
 
-let new_sequent sequent ground_var_ctx ?(alpha=[]) ?(arith_ctx=[]) ?(j=sequent.j) ?(k=sequent.k) ?(annot=None) formula = 
+let new_sequent sequent ground_var_ctx ?(alpha=[]) ?(arith_ctx=[]) ?(j=sequent.j) ?(k=sequent.k) formula = 
   { id = fresh_id_sequent (); ground_var_ctx = ground_var_ctx@sequent.ground_var_ctx; alpha = alpha@sequent.alpha; arith_ctx = arith_ctx@sequent.arith_ctx; 
-    j = j; k = k; annot = annot; formula = formula }
+    j = j; k = k; formula = formula }

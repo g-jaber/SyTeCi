@@ -25,7 +25,7 @@ let rec string_of_typeML = function
   
 
   
-let rec string_of_vars = string_of_pmap ":" string_of_typeML  
+let string_of_vars = string_of_pmap ":" string_of_typeML  
   
 (* Expressions *)
 type exprML =

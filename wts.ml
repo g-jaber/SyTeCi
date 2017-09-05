@@ -62,6 +62,10 @@ let get_state states a =
 let fresh_state () =
   let state = fresh_atom_state () in
   (state,(empty_pmap,[]))
+  
+let fresh_incons_state (_,_,_,preds) =
+  let state = fresh_atom_state () in
+  (state,(empty_pmap,preds))  
 
 let free_state (a,_) =
   available_states := AStates.add a !available_states
@@ -153,7 +157,7 @@ let list_swap old_state new_state states =
   
 let singleton_sr () = 
   let state = fresh_state () in
-  print_endline ("Adding new state " ^(string_of_state state));
+(*  print_endline ("Adding new state " ^(string_of_state state));*)
   { states = States.singleton state; 
     init_state = state;
     incons_states = States.empty;
@@ -212,7 +216,7 @@ let union ((sr1,isExt1,isWB1,preds1) as esr1) ((sr2,isExt2,isWB2,preds2) as esr2
   let (i,_) = sr1.init_state in
   let (j,_) = sr2.init_state in
   match (i < j,i=j) with
-   | (true,_) -> print_endline ("Merging1 " ^ (string_of_state sr2.init_state) ^ " into " ^ (string_of_state sr1.init_state));
+   | (true,_) -> (*print_endline ("Merging1 " ^ (string_of_state sr2.init_state) ^ " into " ^ (string_of_state sr1.init_state));*)
                  let (sr2,isExt2,isWB2,pred2) = substitute_state_esr sr1.init_state esr2  in
                  basic_union sr1.init_state (sr1,isExt1,isWB1,preds1) (sr2,isExt2,isWB2,preds2)
    | (false,true) -> failwith "Error trying to build the WTS: We are trying to merge two ESRs which already share the same initial state"
@@ -221,57 +225,9 @@ let union ((sr1,isExt1,isWB1,preds1) as esr1) ((sr2,isExt2,isWB2,preds2) as esr2
                       basic_union sr2.init_state (sr1,isExt1,isWB1,preds1) (sr2,isExt2,isWB2,preds2)
 
 
-(*let build_esr_modal prev_sequent current_sequent init_state (sr,isExt,isWB,pred) =
-(*  let (sr,isExt,isWB,pred) = build_esr tc in*)
-  let (vars,pred') = newelem_of_sequents prev_sequent current_sequent in
-  let preds = iter 2 simplify_arith_pred (AAnd (pred::pred')) in
-  match current_sequent.modality with
-    | NextE (hpre1,hpre2,hpost1,hpost2) ->
-        let (sr',isExt',isWB',_) = extend_env_esr (vars,preds) (sr,isExt,isWB,ATrue) in     
-        sr'.extern_transitions <- (init_state,sr'.init_state, (hpre1,hpre2,hpost1,hpost2,ATrue))::sr'.extern_transitions;
-        begin match preds with
-           | ATrue -> (sr',isExt',isWB',ATrue)
-           | _ -> let incons_state = extend_env_state (vars,negate_arith_pred preds) (fresh_state ()) in
-                  sr'.states <- States.add incons_state sr'.states;  
-                  sr'.incons_states <- States.add incons_state sr'.incons_states;
-                  sr'.extern_transitions <- (init_state, incons_state,(hpre1,hpre2,hpost1,hpost2,ATrue))::sr'.extern_transitions;
-                  (sr',isExt',isWB',ATrue)
-        end
-    | NextWB (hpre1,hpre2,hpost1,hpost2) ->
-        let (sr',isExt',isWB',_) = extend_env_esr (vars,preds) (sr,isExt,isWB,ATrue) in     
-        sr'.extern_transitions <- (init_state,sr'.init_state, (hpre1,hpre2,hpost1,hpost2,ATrue))::sr'.extern_transitions;
-        begin match preds with
-           | ATrue -> (sr',isExt',isWB',ATrue)
-           | _ -> let incons_state = extend_env_state (vars,negate_arith_pred preds) (fresh_state ()) in
-                  sr'.states <- States.add incons_state sr'.states;  
-                  sr'.incons_states <- States.add incons_state sr'.incons_states;
-                  sr'.extern_transitions <- (init_state, incons_state,(hpre1,hpre2,hpost1,hpost2,ATrue))::sr'.extern_transitions;
-                  (sr',isExt',isWB',ATrue)
-        end        
-    | NextI (hpre1,hpre2,hpost1,hpost2) ->
-        let (sr',isExt',isWB',_) = extend_env_esr (vars,preds) (sr,isExt,isWB,ATrue) in     
-        sr'.pintern_transitions <- (init_state,sr'.init_state, (hpre1,hpre2,hpost1,hpost2,ATrue))::sr'.pintern_transitions;
-        begin match preds with
-           | ATrue -> (sr',isExt',isWB',ATrue)
-           | _ -> let incons_state = extend_env_state (vars,negate_arith_pred preds) (fresh_state ()) in
-                  sr'.states <- States.add incons_state sr'.states;  
-                  sr'.incons_states <- States.add incons_state sr'.incons_states;
-                  sr'.pintern_transitions <- (init_state, incons_state,(hpre1,hpre2,hpost1,hpost2,ATrue))::sr'.pintern_transitions;
-                  (sr',isExt',isWB',ATrue)
-        end        
-    | Square _ ->
-        let (sr',isExt',isWB',_) = extend_env_esr (vars,preds) (sr,isExt,isWB,ATrue) in         
-        sr'.peps_transitions <- (init_state,sr'.init_state)::sr'.peps_transitions;
-        let wb_transitions = List.map (fun state' -> (init_state, state')) (States.elements isVal') in
-        sr'.wb_transitions <- wb_transitions@sr'.wb_transitions;        
-        (sr',isExt',isWB',ATrue)
-    | SquarePub _ -> 
-        let (sr',isExt',isWB',_) = extend_env_esr (vars,preds) (sr,isExt,isWB,ATrue) in        
-        sr'.peps_transitions <- (init_state,sr'.init_state)::sr'.peps_transitions;          
-        (sr',isExt',isWB',ATrue)     
-    | _ -> failwith ("Cannot deal with the modality " ^ (string_of_modality current_sequent.modality))*)
-
-let build_esr_ruleO (esr::esrs) polarity = 
+let build_esr_ruleO polarity = function
+  | [] -> failwith "Error trying to build the WTS: the rule V or K does not contain any premise"
+  | esr::esrs ->
       let new_init_state = fresh_state () in
       let (sr,isExt,isWB,preds) = List.fold_left (basic_union new_init_state) esr esrs in      
       let wb_transitions = List.map (fun state' -> (new_init_state, state')) (States.elements isWB) in
@@ -282,26 +238,38 @@ let build_esr_ruleO (esr::esrs) polarity =
       sr.wb_transitions <- wb_transitions@sr.wb_transitions;
       sr.extern_transitions <- wb_transitions@extern_transitions@sr.extern_transitions;      
       sr.o_transitions <- o_transitions@sr.o_transitions;
-      match polarity with
+      begin match polarity with
         | OQ -> (sr,States.empty,States.empty,preds)
         | OA -> (sr,States.empty,isWB,preds)
+        | _ -> failwith "Wrong polarity"
+      end  
 
 let build_pintern_trans sequent s ((sr,_,_,preds),(tag,hpre1,hpre2,hpost1,hpost2),sequent') =
   let (preds',vars) = newelem_of_sequents sequent' sequent in
   let polarity = polarity_from_tag tag in
-  print_endline ("New Pintern transition :" ^ (string_of_state s) ^ "->" ^ (string_of_state sr.init_state)); 
   (s,sr.init_state,(hpre1,hpre2,hpost1,hpost2,preds@preds',polarity))
+
+let build_pintern_trans_incons sequent s s' ((sr,_,_,_),(tag,hpre1,hpre2,hpost1,hpost2),sequent') =
+  let (preds',vars) = newelem_of_sequents sequent' sequent in
+  let polarity = polarity_from_tag tag in
+  (s,s',(hpre1,hpre2,hpost1,hpost2,preds',polarity))  
         
-let build_esr_ruleP sequent (((esr,annotation,sequent)::esrs_a) as esrs_a') = 
+let build_esr_ruleP sequent esrs_a = match esrs_a with
+  | [] -> failwith "Error trying to build the WTS: the rule E does not contain any premise"
+  | ((esr,annotation,sequent)::esrs_a') ->
       let new_init_state = fresh_state () in
-      let (sr,isExt,isWB,preds) = List.fold_left (fun esr1 (esr2,_,_) -> basic_union new_init_state esr1 esr2) esr esrs_a in      
-      let pintern_transitions = List.map (build_pintern_trans sequent new_init_state) esrs_a' in
+      let new_incons_states = List.map (fun (esr,_,_) -> fresh_incons_state esr) esrs_a in
+      let (sr,isExt,isWB,preds) = List.fold_left (fun esr1 (esr2,_,_) -> basic_union new_init_state esr1 esr2) esr esrs_a' in      
+      let pintern_transitions = List.map (build_pintern_trans sequent new_init_state) esrs_a in
+      let pintern_transitions_incons = List.map2 (build_pintern_trans_incons sequent new_init_state) new_incons_states esrs_a in
       sr.states <- States.add new_init_state sr.states;  
+      List.iter (fun s -> sr.states <- States.add s sr.states) new_incons_states;
+      List.iter (fun s -> sr.incons_states <- States.add s sr.incons_states) new_incons_states;      
       sr.init_state <- new_init_state;
-      sr.pintern_transitions <- pintern_transitions@sr.pintern_transitions;
-      let isExt_esrs_a = List.filter (fun (_,(tag,_,_,_,_),_) -> tag = Extern) esrs_a' in
+      sr.pintern_transitions <- pintern_transitions@pintern_transitions_incons@sr.pintern_transitions;
+      let isExt_esrs_a = List.filter (fun (_,(tag,_,_,_,_),_) -> tag = Extern) esrs_a in
       let isExt' = States.of_list (List.map (fun ((sr,_,_,preds),_,_) -> sr.init_state) isExt_esrs_a) in
-      let isWB_esrs_a = List.filter (fun (_,(tag,_,_,_,_),_) -> tag = WB) esrs_a' in
+      let isWB_esrs_a = List.filter (fun (_,(tag,_,_,_,_),_) -> tag = WB) esrs_a in
       let isWB' = States.of_list (List.map (fun ((sr,_,_,preds),_,_) -> sr.init_state) isWB_esrs_a) in      
       (sr,States.union isExt' isExt,States.union isWB' isWB,[])        
     
@@ -312,41 +280,13 @@ let rec build_esr = function
       let esr1 = build_esr tc1 in
       let esr2 = build_esr tc2 in      
       union esr1 esr2
-  | Unfold (tc,sequent) | LUnfold (tc,sequent) | RUnfold (tc,sequent)  | Rewrite (tc,sequent) -> build_esr tc        
-  | RuleV ([],sequent) -> failwith "Error trying to build the WTS: A rule V does not contain any premise"
-  | RuleK ([],sequent) -> failwith "Error trying to build the WTS: A rule K does not contain any premise"  
-  | RuleV (tcs,sequent) -> let esrs = List.map build_esr tcs in build_esr_ruleO esrs OQ
-  | RuleK (tcs,sequent) -> let esrs = List.map build_esr tcs in build_esr_ruleO esrs OA
+  | Unfold (tc,sequent) | LUnfold (tc,sequent) | RUnfold (tc,sequent)  | Rewrite (tc,sequent) -> build_esr tc    
+  | RuleV (tcs,sequent) -> let esrs = List.map build_esr tcs in build_esr_ruleO OQ esrs
+  | RuleK (tcs,sequent) -> let esrs = List.map build_esr tcs in build_esr_ruleO OA esrs
   | RuleE (tcs_a,sequent) -> 
       let esrs_a = List.map (fun (annotation,tc) -> (build_esr tc,annotation,get_root tc)) tcs_a in
       build_esr_ruleP sequent esrs_a
   | tc -> failwith ("Error trying to build the WTS: we cannot deal with the tc structure: " ^ (string_of_tc tc))     
- 
-(*        | Next (hpre1,hpre2,hpost1,hpost2) ->
-           let (preds,env) = newelem_of_sequents prev_sequent sequent in
-           print_endline ("We have the environment " ^ (string_of_pmap ":" string_of_typeML env));
-           let new_state = fresh_state () in
-           let old_init_state = sr.init_state in
-           sr.states <- States.add new_state sr.states;
-           sr.init_state <- new_state;           
-           sr.extern_transitions <- (new_state, old_init_state,(hpre1,hpre2,hpost1,hpost2,pred))::sr.extern_transitions;
-           begin match pred with
-             | ATrue -> ()
-             | _ -> let incons_state = fresh_tate () 
-                    in  sr.incons_states <- States.add incons_state sr.incons_states;
-                    sr.extern_transitions <- (new_state, incons_state,(hpre1,hpre2,hpost1,hpost2,negate_arith_pred pred))::sr.extern_transitions
-           end;
-           extend_env_esr (env,preds) (sr,isExt,isWB,ATrue)
-      end      *)
   
 let rec build_sr tc =
-  let (sr,isExt,isWB,preds) = build_esr tc in
-  print_endline ("IsExt: ");
-  States.iter (fun x -> print_endline ((string_of_state x) ^" ")) isExt;
-  print_newline ();
-  print_endline ("IsWB: ");
-  States.iter (fun x -> print_endline ((string_of_state x) ^" ")) isWB;
-  print_newline ();          
-  sr
-
-  
+  let (sr,_,_,_) = build_esr tc in sr

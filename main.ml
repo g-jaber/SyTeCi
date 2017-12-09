@@ -4,7 +4,8 @@ open Skor
 open Tcstruct
 open Logic
 open Templogic
-(*open Wts*)
+open Wts
+open Wts_closure
 
 let get_filename () = 
    if (Array.length Sys.argv <= 2) then failwith ("Error: you should provide two files containing the programs you want to compare.");
@@ -36,17 +37,16 @@ let () =
         print_newline ();
         let (expr2,ty2) = get_term filename2 in
         let tc = build_tc_rule [] (emptyctx_sequent (RelE (ty1,[],(expr1,[]),(expr2,[]))) 0 0) in (*(int_of_string Sys.argv.(3))) in *)        
-        let tc' = extract_temporal tc in
-        let temp_form = iter 10 simplify_temp_formula (tformula_of_tc tc') in   
+        let temp_form = iter 10 simplify_temp_formula (tformula_of_tc tc) in   
         print_endline ("Temporal Formula:");
         print_string (string_of_temp_formula temp_form);
         print_newline ();
-(*        print_endline ("WTS:");
-        let (sr,isVal,isSquare,isSquareP,preds) = Wts.build_esr tc' in   
-        Wts.print_sr sr;*)
-(*        print_endline ("Closed WTS:");        
-        let (sr',_,_) = iter 3 esr_closure (sr,isSquare,isSquareP) in
-        Wts.print_sr sr';   *)     
+        print_endline ("WTS:");
+        let (sr,isExt,isWB,preds) = Wts.build_esr tc in   
+        Wts.print_sr sr;
+        print_endline ("Closed WTS:");        
+        let sr' = sr_closure sr in
+        Wts.print_sr sr';     
 (*        print_endline ("Reachability:");
         let paths = backward_sr sr' in
         List.iter (fun (lists,x) -> ((List.iter (fun s -> print_string ((string_of_state s) ^" ")) lists); (print_endline (string_of_arith_pred x)))) paths*)

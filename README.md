@@ -8,7 +8,7 @@ One can then check that no failed states are reachable to prove that M1,M2 are c
 
 This requires menhir. Then, a simple invocation of `make` should create the binary syteci.
 
-# Use
+## Use
 
 To use SyTeCi, you first have to put the programs you want to compare in two different files "file1" and "file2".
 Then, you have to invoke the following command:

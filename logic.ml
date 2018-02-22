@@ -11,7 +11,7 @@ let fresh_locvar () =
   count_locvar := !count_locvar + 1; ("l" ^ (string_of_int l))
 
 let string_of_symb_heap = function
-  | [] -> "emp"
+  | [] -> "ε"
   | heap -> "[" ^ (string_of_pmap "->" string_of_exprML heap) ^ "]"  
   
 let count_lvar = ref 0
@@ -52,6 +52,8 @@ let rec simplify_arith_pred = function
       let preds' = List.filter (fun x-> x<>ATrue) preds in 
       let preds'' = List.map simplify_arith_pred preds' in
       if List.mem AFalse preds'' then AFalse else AAnd preds''
+  | AOr [] -> AFalse
+  | AOr [pred] -> pred
   | AOr preds ->
       let preds' = List.filter (fun x-> x<>AFalse) preds in 
       let preds'' = List.map simplify_arith_pred preds' in
@@ -91,8 +93,8 @@ let rec string_of_arith_pred = function
   | AExpr expr -> Syntax.string_of_exprML expr
   | ATrue -> "True"
   | AFalse -> "False"
-  | AAnd preds -> string_of_conj " /\\ " string_of_arith_pred preds
-  | AOr preds -> string_of_conj " \\/ " string_of_arith_pred preds  
+  | AAnd preds -> "And" ^ string_of_conj " /\\ " string_of_arith_pred preds
+  | AOr preds -> "Or" ^ string_of_conj " \\/ " string_of_arith_pred preds  
   | AEqual (pred1,pred2) -> (string_of_arith_pred pred1) ^ " = " ^ (string_of_arith_pred pred2)
   | ANEqual (pred1,pred2) -> (string_of_arith_pred pred1) ^ " <> " ^ (string_of_arith_pred pred2)
   | ALess (pred1,pred2) -> (string_of_arith_pred pred1) ^ " < " ^ (string_of_arith_pred pred2)

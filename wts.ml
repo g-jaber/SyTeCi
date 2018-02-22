@@ -1,3 +1,6 @@
+(* ocamlfind ocamlopt pmap.ml syntax.ml parser.ml lexer.ml logic.ml symb_red.ml unif.ml skor.ml tcstruct.ml templogic.ml wts.ml wts_closure.ml wts_to_dot.ml type_checker.ml main.ml -o syteci -ccopt -static *)
+
+
 open Tcstruct
 open Logic
 open Pmap
@@ -6,7 +9,15 @@ open Skor
 
 type polarity = PI | PQ | PA | OQ | OA
 
-type label = (symbheap*symbheap*symbheap*symbheap*Logic.arith_pred list*polarity)
+let string_of_polarity = function
+  | PI -> "PI" 
+  | PQ -> "PQ" 
+  | PA -> "PA" 
+  | OQ -> "OQ" 
+  | OA -> "OA"
+
+
+type label = (symbheap*symbheap*symbheap*symbheap*Logic.arith_pred*polarity)
 
 let polarity_from_tag = function
   | Intern -> PI
@@ -14,9 +25,13 @@ let polarity_from_tag = function
   | WB -> PA
   | Wrong -> PI
 
-let string_of_label (heapPre1,heapPre2,heapPost1,heapPost2,preds,_) =
-    "[" ^ (string_of_symb_heap heapPre1) ^ "],[" ^(string_of_symb_heap heapPre2) ^ "],[" ^(string_of_symb_heap heapPost1) ^ "],[" 
-      ^ (string_of_symb_heap heapPost2) ^ "]," ^ (string_of_conj "/\\" string_of_arith_pred preds)
+let string_of_label (heapPre1,heapPre2,heapPost1,heapPost2,preds,polarity) =
+   let string_heaps = (string_of_symb_heap heapPre1) ^ "," ^(string_of_symb_heap heapPre2) ^ "," ^(string_of_symb_heap heapPost1) ^ "," ^ (string_of_symb_heap heapPost2) in
+   let string_polarity = string_of_polarity polarity in
+   let string_preds = string_of_arith_pred preds in
+   match string_preds with
+     | "" -> string_heaps ^ "," ^ string_polarity
+     | _ -> string_heaps ^ "," ^ string_preds ^ "," ^ string_polarity
 
 (*let simplify_label (heapPre1,heapPre2,heapPost1,heapPost2,pred) = (heapPre1,heapPre2,heapPost1,heapPost2,simplify_arith_pred pred) *)
       
@@ -40,9 +55,11 @@ let fresh_atom_state () =
                a
  
 
-type state = atom_state*(var_ctx*arith_pred list)
+type state = atom_state*var_ctx
 
-let compare_state (s1,(env1,_)) (s2,(env2,_)) =(*
+let atom_state_from_state (s,_) = s
+
+let compare_state (s1,env1) (s2,env2) =(*
   print_endline ("Comparing "^ (string_of_state (s1,env1,pred1)) ^ " and " ^ (string_of_state (s2,env2,pred2)));*)
   (s1 = s2) && (env1 = env2)
 
@@ -61,21 +78,17 @@ let get_state states a =
  
 let fresh_state () =
   let state = fresh_atom_state () in
-  (state,(empty_pmap,[]))
+  (state,empty_pmap)
   
-let fresh_incons_state (_,_,_,preds) =
-  let state = fresh_atom_state () in
-  (state,(empty_pmap,preds))  
 
 let free_state (a,_) =
   available_states := AStates.add a !available_states
   
-let extend_env_state (vars1,preds1) (s,(vars2,preds2)) = (s,(vars1@vars2,preds1@preds2))  
+let extend_env_state vars1 (s,vars2) = (s,vars1@vars2)  
 
-let string_of_state (s,env) = match env with
-  | ([],[]) -> string_of_int s
-  | (vars,[]) -> "(" ^ (string_of_int s) ^ "," ^ (string_of_pmap ":" string_of_typeML vars) ^ ")"
-  | (vars,preds) -> "(" ^ (string_of_int s) ^ "," ^ (string_of_pmap ":" string_of_typeML vars) ^ "," ^ (string_of_conj "/\\" string_of_arith_pred preds) ^ ")"
+let string_of_state (s,vars) = match vars with
+  | [] -> string_of_int s
+  | _ -> "(" ^ (string_of_int s) ^ "," ^ (string_of_pmap ":" string_of_typeML vars) ^ ")"
 
 type sr = { 
     mutable states : States.t;
@@ -115,7 +128,7 @@ let string_of_intern_transition (s1,s2,label) =
   (string_of_state s1) ^ "-(" ^ (string_of_label label) ^")->" ^ (string_of_state s2)
 
 let string_of_o_transition (s1,s2,polarity) =
-  (string_of_state s1) ^ "-->" ^ (string_of_state s2)  
+  (string_of_state s1) ^ "-"^(string_of_polarity polarity)^"->" ^ (string_of_state s2)  
 
 let string_of_atomic_transition (s1,s2) =
   (string_of_state s1) ^ "-->" ^ (string_of_state s2)  
@@ -247,30 +260,35 @@ let build_esr_ruleO polarity = function
 let build_pintern_trans sequent s ((sr,_,_,preds),(tag,hpre1,hpre2,hpost1,hpost2),sequent') =
   let (preds',vars) = newelem_of_sequents sequent' sequent in
   let polarity = polarity_from_tag tag in
-  (s,sr.init_state,(hpre1,hpre2,hpost1,hpost2,preds@preds',polarity))
+  let full_preds = simplify_arith_pred (AAnd (preds@preds')) in
+  (s,sr.init_state,(hpre1,hpre2,hpost1,hpost2,full_preds,polarity))
 
-let build_pintern_trans_incons sequent s s' ((sr,_,_,_),(tag,hpre1,hpre2,hpost1,hpost2),sequent') =
+let build_pintern_trans_incons sequent s ((sr,_,_,preds),(tag,hpre1,hpre2,hpost1,hpost2),sequent') =
   let (preds',vars) = newelem_of_sequents sequent' sequent in
   let polarity = polarity_from_tag tag in
-  (s,s',(hpre1,hpre2,hpost1,hpost2,preds',polarity))  
+  let neg_preds = negate_arith_pred (AAnd preds) in
+  let full_preds = simplify_arith_pred (simplify_arith_pred (AAnd (neg_preds::preds'))) in
+  match full_preds with
+   | AFalse -> []
+   | _ -> let s' = fresh_state() in [((s,s',(hpre1,hpre2,hpost1,hpost2,full_preds,polarity)),s')]  
         
 let build_esr_ruleP sequent esrs_a = match esrs_a with
   | [] -> failwith "Error trying to build the WTS: the rule E does not contain any premise"
   | ((esr,annotation,sequent)::esrs_a') ->
       let new_init_state = fresh_state () in
-      let new_incons_states = List.map (fun (esr,_,_) -> fresh_incons_state esr) esrs_a in
+      let isExt_esrs_a = List.filter (fun (_,(tag,_,_,_,_),_) -> tag = Extern) esrs_a in
+      let isExt' = States.of_list (List.map (fun ((sr',_,_,_),_,_) -> sr'.init_state) isExt_esrs_a) in
+      let isWB_esrs_a = List.filter (fun (_,(tag,_,_,_,_),_) -> tag = WB) esrs_a in
+      let isWB' = States.of_list (List.map (fun ((sr',_,_,_),_,_) -> sr'.init_state) isWB_esrs_a) in          
+(*      let new_incons_states = List.map (fun _ -> fresh_state ()) esrs_a in*)
       let (sr,isExt,isWB,preds) = List.fold_left (fun esr1 (esr2,_,_) -> basic_union new_init_state esr1 esr2) esr esrs_a' in      
       let pintern_transitions = List.map (build_pintern_trans sequent new_init_state) esrs_a in
-      let pintern_transitions_incons = List.map2 (build_pintern_trans_incons sequent new_init_state) new_incons_states esrs_a in
+      let (pintern_transitions_incons,new_incons_states) = List.split (List.flatten (List.map (build_pintern_trans_incons sequent new_init_state) esrs_a)) in
       sr.states <- States.add new_init_state sr.states;  
       List.iter (fun s -> sr.states <- States.add s sr.states) new_incons_states;
       List.iter (fun s -> sr.incons_states <- States.add s sr.incons_states) new_incons_states;      
       sr.init_state <- new_init_state;
-      sr.pintern_transitions <- pintern_transitions@pintern_transitions_incons@sr.pintern_transitions;
-      let isExt_esrs_a = List.filter (fun (_,(tag,_,_,_,_),_) -> tag = Extern) esrs_a in
-      let isExt' = States.of_list (List.map (fun ((sr,_,_,preds),_,_) -> sr.init_state) isExt_esrs_a) in
-      let isWB_esrs_a = List.filter (fun (_,(tag,_,_,_,_),_) -> tag = WB) esrs_a in
-      let isWB' = States.of_list (List.map (fun ((sr,_,_,preds),_,_) -> sr.init_state) isWB_esrs_a) in      
+      sr.pintern_transitions <- pintern_transitions@pintern_transitions_incons@sr.pintern_transitions;  
       (sr,States.union isExt' isExt,States.union isWB' isWB,[])        
     
 let rec build_esr = function
@@ -287,6 +305,8 @@ let rec build_esr = function
       let esrs_a = List.map (fun (annotation,tc) -> (build_esr tc,annotation,get_root tc)) tcs_a in
       build_esr_ruleP sequent esrs_a
   | tc -> failwith ("Error trying to build the WTS: we cannot deal with the tc structure: " ^ (string_of_tc tc))     
+
   
 let rec build_sr tc =
   let (sr,_,_,_) = build_esr tc in sr
+  

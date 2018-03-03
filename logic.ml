@@ -93,8 +93,8 @@ let rec string_of_arith_pred = function
   | AExpr expr -> Syntax.string_of_exprML expr
   | ATrue -> "True"
   | AFalse -> "False"
-  | AAnd preds -> "And" ^ string_of_conj " /\\ " string_of_arith_pred preds
-  | AOr preds -> "Or" ^ string_of_conj " \\/ " string_of_arith_pred preds  
+  | AAnd preds -> string_of_conj " /\\ " string_of_arith_pred preds
+  | AOr preds ->  string_of_conj " \\/ " string_of_arith_pred preds  
   | AEqual (pred1,pred2) -> (string_of_arith_pred pred1) ^ " = " ^ (string_of_arith_pred pred2)
   | ANEqual (pred1,pred2) -> (string_of_arith_pred pred1) ^ " <> " ^ (string_of_arith_pred pred2)
   | ALess (pred1,pred2) -> (string_of_arith_pred pred1) ^ " < " ^ (string_of_arith_pred pred2)

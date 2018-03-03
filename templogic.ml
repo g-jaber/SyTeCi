@@ -77,7 +77,7 @@ let rec simplify_temp_formula formula = match formula with
 
 let rec tformula_of_tc = function
   | RuleVG sequent -> TPred (extract_pred_from_vg sequent)
-  | Stop sequent -> TPred (negate_arith_pred (AAnd sequent.arith_ctx))
+  | Stop sequent -> TPred AFalse (*TPred (negate_arith_pred (AAnd sequent.arith_ctx))*)
   | LOut _ -> TPred ATrue
   | ROut _ -> TPred AFalse
   | RuleSext ((tc1,tc2),sequent) | RuleVProd ((tc1,tc2),sequent) -> TAnd [(tformula_of_tc tc1); (tformula_of_tc tc2)]
@@ -95,7 +95,10 @@ let rec tformula_of_tc = function
   | RuleE (tcs,sequent) ->
         let aux (annot,tc') =
           let (preds,vars) = newelem_of_sequents sequent (get_root tc') in
-          TForAll (vars, TImpl (preds, Mod (modality_from_annot annot,  tformula_of_tc tc')))
+          begin match annot with
+            | (Wrong,_,_,_,_) -> TForAll (vars, TImpl (preds, tformula_of_tc tc'))
+            | _ -> TForAll (vars, TImpl (preds, Mod (modality_from_annot annot,  tformula_of_tc tc')))
+          end  
         in TAnd (List.map aux tcs)
   | Circ (rho,backsequent,sequent) ->
        let svar = get_svar backsequent.id in

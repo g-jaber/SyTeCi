@@ -1,7 +1,6 @@
 open Syntax
 open Pmap
 open Logic
-open Unif
 
 
 (* -------- SKORs ---------- *) 

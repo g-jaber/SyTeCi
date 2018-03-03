@@ -132,7 +132,32 @@ let rec string_of_exprML = function
   
 (* Auxiliary functions *)
 
+let get_consfun_from_binexpr = function
+  | Plus _ -> fun (x,y) -> Plus (x,y)
+  | Minus _ -> fun (x,y) -> Minus (x,y)
+  | Mult _ -> fun (x,y) -> Mult (x,y)
+  | Div _ -> fun (x,y) -> Div (x,y)
+  | And _ ->  fun (x,y) -> And (x,y)
+  | Or _ ->  fun (x,y) -> Plus (x,y)
+  | Equal _ ->  fun (x,y) -> Plus (x,y)
+  | NEqual _ -> fun (x,y) -> NEqual (x,y)
+  | Less _ ->  fun (x,y) -> Less (x,y)
+  | LessEq _ ->  fun (x,y) -> LessEq (x,y)
+  | Great _ ->  fun (x,y) -> Great (x,y)
+  | GreatEq _ ->  fun (x,y) -> GreatEq (x,y)
+  | Let (var,_,_) ->  fun (x,y) -> Let (var,x,y)
+  | Seq _ ->  fun (x,y) -> Seq (x,y)
+  | App _ ->  fun (x,y) -> App (x,y)
+  | Pair _ -> fun (x,y) -> Pair (x,y)
+  | Assign _ ->  fun (x,y) -> Assign (x,y)
+  | expr -> failwith ("No binary constructor function can be extracted from "^ (string_of_exprML expr))
 
+let get_consfun_from_unexpr = function  
+  | Not _ -> fun x -> Not x
+  | Newref _ -> fun x -> Newref x
+  | Deref _ -> fun x -> Deref x
+  | expr -> failwith ("No unary constructor function can be extracted from "^ (string_of_exprML expr))  
+  
 let get_aop_from_expr = function
   | Plus (expr1,expr2) -> (expr1,expr2,(+),fun (x,y) -> Plus (x,y)) 
   | Mult (expr1,expr2) -> (expr1,expr2,( * ),fun (x,y) -> Mult (x,y)) 

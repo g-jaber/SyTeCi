@@ -181,14 +181,13 @@ let union ((sr1,isExt1,isWB1,preds1,p_back_trans1) as esr1) ((sr2,isExt2,isWB2,p
   let i = sr1.init_state in
   let j = sr2.init_state in
   match (i < j,i=j) with
-   | (true,_) -> (*print_endline ("Merging1 " ^ (string_of_state sr2.init_state) ^ " into " ^ (string_of_state sr1.init_state));*)
-                 let (sr2,isExt2,isWB2,preds2,p_back_trans2) = substitute_state_esr sr1.init_state esr2  in
-                 basic_union sr1.init_state (sr1,isExt1,isWB1,preds1,p_back_trans1) (sr2,isExt2,isWB2,preds2,p_back_trans2)
+   | (true,_) -> Debug.print_debug ("Merging1 " ^ (string_of_state j) ^ " into " ^ (string_of_state i));
+                 let (sr2,isExt2,isWB2,preds2,p_back_trans2) = substitute_state_esr i esr2  in
+                 basic_union i (sr1,isExt1,isWB1,preds1,p_back_trans1) (sr2,isExt2,isWB2,preds2,p_back_trans2)
    | (false,true) -> failwith "Error trying to build the WTS: We are trying to merge two ESRs which already share the same initial state"
-   | (false,false) -> (*print_endline ("Merging2 " ^ (string_of_state sr1.init_state) ^ " into " ^ (string_of_state sr2.init_state));*)
-                      let (sr1,isExt1,isWB1,preds1,p_back_trans1) = substitute_state_esr sr2.init_state esr1  in
-                      basic_union sr2.init_state (sr1,isExt1,isWB1,preds1,p_back_trans1) (sr2,isExt2,isWB2,preds2,p_back_trans2)
-
+   | (false,false) -> Debug.print_debug ("Merging2 " ^ (string_of_state i) ^ " into " ^ (string_of_state j));
+                      let (sr1,isExt1,isWB1,preds1,p_back_trans1) = substitute_state_esr j esr1  in
+                      basic_union j (sr1,isExt1,isWB1,preds1,p_back_trans1) (sr2,isExt2,isWB2,preds2,p_back_trans2)
 
 let build_esr_ruleO polarity = function
   | [] -> failwith "Error trying to build the WTS: the rule V or K does not contain any premise"
@@ -263,7 +262,7 @@ let rec build_esr = function
       sr.peps_transitions <- (new_init_state,sr.init_state,gsubst)::sr.peps_transitions;
       sr.init_state <- new_init_state;
       let premise_sequent = get_root tc in
-      print_endline ("Gen id " ^ (string_of_int premise_sequent.id));
+      Debug.print_debug ("Gen id " ^ (string_of_int premise_sequent.id));
       let (p_back_trans_now,p_back_trans_later) = List.partition (fun (_,id,_) -> id = premise_sequent.id) p_back_trans in
       let back_trans = List.map (fun (state,_,gsubst) -> (state,new_init_state,gsubst)) p_back_trans_now in
       sr.peps_transitions <- back_trans@sr.peps_transitions;

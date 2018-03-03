@@ -51,16 +51,6 @@ let rec abstr_fo expr = match expr with
   | App (expr1, expr2) -> let (expr2',preds) = abstr_fo expr2 in (App (expr1,expr2'),preds)
   | _ -> (expr,[])  
 
-(*let rec add_span span (x1,x2) = match span with
-  | [] -> Some ((x1,x2)::span)
-  | (y1,y2)::span' -> if (x1 = y1) then begin
-                         if (x2 = y2) then Some span
-                         else None
-                      end else begin if (x2 = y2) then None
-                                     else add_span span' (x1,x2)
-
-                               end        *)
-
 let plop f = function
    | None -> None
    | Some (support,gsubst1,gsubst2,e) -> Some (support,gsubst1,gsubst2,f e)
@@ -73,7 +63,7 @@ let rec unif flag vars support gsubst1 gsubst2 (expr1,expr2) = match (expr1,expr
       let y = fresh_lvar () in
       Some ((y,TInt)::support,(y,expr)::gsubst1,(y,expr2)::gsubst2,Var y)
     end 
-(*  | (Var x,expr) ->  if (is_ground_term vars expr) then Some (gsubst1,(x,expr)::gsubst2,expr1) else (print_endline ("Failed1: " ^ (string_of_exprML expr)); None) *)
+(*  | (Var x,expr) ->  if (is_ground_term vars expr) then Some (gsubst1,(x,expr)::gsubst2,expr1) else (Debug.print_debug ("Failed1: " ^ (string_of_exprML expr)); None) *)
   | (Loc l1, Loc l2) -> if (l1 = l2) then Some (support,gsubst1,gsubst2,expr2) else None 
   | (Unit,Unit) -> Some (support,gsubst1,gsubst2,expr2)
   | (Int n1,Int n2) -> if (n1 = n2) then Some (support,gsubst1,gsubst2,expr2) else None 
@@ -104,8 +94,8 @@ and unif_aux_bin flag funconstr vars support gsubst1 gsubst2 u v =
 let unif_sequent flag sequent_1 sequent_2 = match (sequent_1.formula,sequent_2.formula) with
   | (RelSI (ty1, _, (expr11, _), (expr12, _)), RelSI (ty2, cb_context2, (expr21,rec_env21), (expr22, rec_env22))) ->
     if (ty1 != ty2) then None else begin
-      print_endline ("Comparing : " ^ (string_of_exprML expr11) ^ " and " ^ (string_of_exprML expr21));
-      print_endline ("Comparing : " ^ (string_of_exprML expr12) ^ " and " ^ (string_of_exprML expr22));           
+      Debug.print_debug ("Comparing : " ^ (string_of_exprML expr11) ^ " and " ^ (string_of_exprML expr21));
+      Debug.print_debug ("Comparing : " ^ (string_of_exprML expr12) ^ " and " ^ (string_of_exprML expr22));           
       let result1 = unif flag sequent_1.ground_var_ctx [] [] [] (expr11,expr21) in
       let result2 = unif flag sequent_1.ground_var_ctx [] [] [] (expr12,expr22) in
       begin match (result1,result2,flag) with

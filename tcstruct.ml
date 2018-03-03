@@ -212,7 +212,7 @@ let rec build_tc_rule flag hist sequent =
          begin match premise with
            | Continue tc_struct ->  Continue (Unfold (tc_struct,sequent))
            | Backtrack (_,bt_sequent,_) as bt -> 
-               print_endline ("Possible dubious backtracking " ^ (string_of_int bt_sequent.id) ^ " and " ^ (string_of_int sequent'.id));
+               Debug.print_debug ("Possible dubious backtracking " ^ (string_of_int bt_sequent.id) ^ " and " ^ (string_of_int sequent'.id));
                bt
          end
        | (IsRecCall (f1,body1,val1,ctx1), IsRecCall (f2,body2,val2,ctx2),j,k,false) ->                  
@@ -220,15 +220,15 @@ let rec build_tc_rule flag hist sequent =
          let ctx2' = iter 3 (Rewrite.rewrite_ac sequent.ground_var_ctx) ctx2 in
          let expr1' = fill_hole ctx1' (App (Var f1,val1)) in
          let expr2' = fill_hole ctx2' (App (Var f2,val2)) in         
-         print_endline ("From : " ^ (string_of_exprML expr1) ^ " to " ^ (string_of_exprML expr1'));
-         print_endline ("From : " ^ (string_of_exprML expr2) ^ " to " ^ (string_of_exprML expr2'));
+         Debug.print_debug ("From : " ^ (string_of_exprML expr1) ^ " to " ^ (string_of_exprML expr1'));
+         Debug.print_debug ("From : " ^ (string_of_exprML expr2) ^ " to " ^ (string_of_exprML expr2'));
          let sequent' = new_sequent sequent [] (RelSI (ty, funct_var_ctx, (expr1',gamma1), (expr2',gamma2))) in
          begin match (Unif.unif_in_hist sequent' hist) with (* We check in the history if we have already seen the rewritten sequent *)
            | (Some (gsubst1,[],_,gen_sequent)) -> 
-               print_endline ("Circ with " ^ (string_of_gsubst gsubst1)); 
+               Debug.print_debug ("Circ with " ^ (string_of_gsubst gsubst1)); 
                Continue (Circ (gsubst1,gen_sequent,sequent'))         
            | (Some (_,gsubst2,bt_sequent,gen_sequent)) -> 
-               print_endline "Backtrack"; 
+               Debug.print_debug "Backtrack"; 
                Backtrack (gsubst2,bt_sequent,gen_sequent)
            | _ -> let expr1'' = fill_hole ctx1' (App (body1,val1)) in (* If we have not seen it, we unfold the fixed-points *)
                   let expr2'' = fill_hole ctx2' (App (body2,val2)) in
@@ -238,7 +238,7 @@ let rec build_tc_rule flag hist sequent =
                   begin match premise with
                     | Continue tc_struct ->  Continue (Unfold (tc_struct,sequent'))
                     | Backtrack (gsubst,bt_sequent,gen_sequent) as bt -> (* When we have to backtrack, we check that the current sequent is the one we have to backtrack to *)
-                        print_endline ("Backtracking " ^ (string_of_int bt_sequent.id) ^ " and " ^ (string_of_int sequent'.id));
+                        Debug.print_debug ("Backtracking " ^ (string_of_int bt_sequent.id) ^ " and " ^ (string_of_int sequent'.id));
                         if bt_sequent.id = sequent'.id then begin
                            let hist'' =  (gen_sequent,true)::hist in
                            let premise = build_tc_rule true hist'' gen_sequent in
@@ -250,7 +250,7 @@ let rec build_tc_rule flag hist sequent =
                   end  
          end     
        | (IsRecCall (_,body1,val1,ctx1), _,j,_,_) -> 
-           print_endline ("LUnfold : " ^ (string_of_exprML expr1) ^ " and " ^ (string_of_exprML expr2));
+           Debug.print_debug ("LUnfold : " ^ (string_of_exprML expr1) ^ " and " ^ (string_of_exprML expr2));
            let expr1' = fill_hole ctx1 (App (body1,val1)) in
            let sequent' = new_sequent sequent [] ~j:(j-1)  (RelE (ty,funct_var_ctx,(expr1',gamma1),(expr2,gamma2))) in
            let premise = build_tc_rule false hist sequent' in
@@ -259,7 +259,7 @@ let rec build_tc_rule flag hist sequent =
              | Backtrack _ -> premise           
            end
        | (_, IsRecCall (_,body2,val2,ctx2),_,k,_) ->
-           print_endline ("RUnfold : " ^ (string_of_exprML expr1) ^ " and " ^ (string_of_exprML expr2));       
+           Debug.print_debug ("RUnfold : " ^ (string_of_exprML expr1) ^ " and " ^ (string_of_exprML expr2));       
            let expr2' = fill_hole ctx2 (App (body2,val2)) in
            let sequent' = new_sequent sequent [] ~k:(k-1) (RelE (ty,funct_var_ctx,(expr1,gamma1),(expr2',gamma2))) in       
            let premise = build_tc_rule false hist sequent' in

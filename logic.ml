@@ -101,18 +101,3 @@ let rec string_of_arith_pred = function
   | ALessEq (pred1,pred2) -> (string_of_arith_pred pred1) ^ " <= " ^ (string_of_arith_pred pred2)
   | AGreat (pred1,pred2) -> (string_of_arith_pred pred1) ^ " > " ^ (string_of_arith_pred pred2)
   | AGreatEq (pred1,pred2) -> (string_of_arith_pred pred1) ^ " >= " ^ (string_of_arith_pred pred2)
-
-
-  
-
-  
-  
- 
-(*let rec string_of_heap = function 
-  | [] -> ""
-  | [(l,v)] -> l ^ " -> " ^ (Syntax.string_of_exprML v)
-  | (l,v)::heap -> l ^ " -> " ^ (Syntax.string_of_exprML v) ^ "," ^ (string_of_heap heap)*)
-         
-      
-
-      

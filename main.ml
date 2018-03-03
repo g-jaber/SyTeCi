@@ -30,19 +30,8 @@ let () =
         let tc = Tcstruct.build_tc ty1 expr1 expr2 step1 step2 in 
         let temp_form = Logic.iter 10 Templogic.simplify_temp_formula (Templogic.tformula_of_tc tc) in   
         print_endline ("Temporal Formula:");
-        print_string (Templogic.string_of_temp_formula temp_form);
-        print_newline ();
+        print_endline (Templogic.string_of_temp_formula temp_form);
         print_endline ("WTS:");
-        let sr = Wts.build_sr tc in   
-(*        Wts.print_sr sr;
-        print_endline ("Closed WTS:");  *)      
+        let sr = Wts.build_sr tc in     
         let sr' = Wts_closure.sr_closure sr in
-        Wts_to_dot.dot_from_sr sr';     
-(*        print_endline ("Reachability:");
-        let paths = backward_sr sr' in
-        List.iter (fun (lists,x) -> ((List.iter (fun s -> print_string ((string_of_state s) ^" ")) lists); (print_endline (string_of_arith_pred x)))) paths*)
-(*        let result = Symb_red.symbred_trans [] [] expr1 [] in
-        List.iter (fun (expr', env, heap, _) -> print_string ("Expr: " ^ (Syntax.string_of_exprML expr')); print_newline ();
-                                                print_string ("Env: " ^ (Symb_red.string_of_env env)); print_newline ();
-                                                print_string ("Heap: " ^ (Logic.string_of_heap heap)); print_newline ())
-                        result;*)
+        Wts_to_dot.dot_from_sr sr';

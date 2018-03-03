@@ -184,7 +184,7 @@ let get_bop_from_expr = function
 
 type functional_env = (id,exprML) pmap
 
-let rec string_of_functional_env = string_of_pmap "->" string_of_exprML
+let string_of_functional_env = string_of_pmap "->" string_of_exprML
 
 type full_expr = exprML*functional_env
 
@@ -222,7 +222,7 @@ and extract_ctx_bin cons_op expr1 expr2 = match (isval expr1, isval expr2) with
 and extract_ctx_un cons_op expr = if (isval expr) then (expr,Hole) 
                                   else let (result,ctx) = extract_ctx expr in (result, cons_op ctx)                                                      
 
-let rec extract_call expr = 
+let extract_call expr = 
   let (expr',ctx) = extract_ctx expr in
   match expr' with
   | App (Var f,expr'') -> (f,expr'',ctx)

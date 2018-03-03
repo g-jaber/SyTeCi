@@ -36,58 +36,31 @@ let string_of_label (heapPre1,heapPre2,heapPost1,heapPost2,preds,polarity) =
 
 (*let simplify_label (heapPre1,heapPre2,heapPost1,heapPost2,pred) = (heapPre1,heapPre2,heapPost1,heapPost2,simplify_arith_pred pred) *)
       
-type atom_state = int
-
-module AStates = Set.Make( 
-  struct
-    let compare = Pervasives.compare (* TODO: Change this ! *)
-    type t = atom_state
-  end )
-
-let count_atom_state = ref 0
-let available_states = ref AStates.empty
-let fresh_atom_state () = 
-  match AStates.is_empty !available_states with
-    | true -> let a = !count_atom_state in
-              count_atom_state := !count_atom_state + 1;
-              a
-    | false -> let a = AStates.min_elt !available_states in
-               available_states := AStates.remove a !available_states;
-               a
- 
-
-type state = atom_state*var_ctx
-
-let atom_state_from_state (s,_) = s
-
-let compare_state (s1,_) (s2,_) = (s1 = s2)
+type state = int
 
 module States = Set.Make( 
   struct
     let compare = Pervasives.compare (* TODO: Change this ! *)
     type t = state
-  end )  
- 
-let get_state states a = 
-  let state = States.elements (States.filter (fun (a',_) -> a = a') states) in
-  match state with
-    | [] -> failwith "Element not found !"
-    | [s] -> s 
-    | _ -> failwith "Duplicated elements !"
- 
-let fresh_state () =
-  let state = fresh_atom_state () in
-  (state,empty_pmap)
-  
+  end )
 
-let free_state (a,_) =
-  available_states := AStates.add a !available_states
-  
-let extend_env_state vars1 (s,vars2) = (s,vars1@vars2)  
+let count_state = ref 0
+let available_states = ref States.empty
+let fresh_state () = 
+  match States.is_empty !available_states with
+    | true -> let a = !count_state in
+              count_state := !count_state + 1;
+              a
+    | false -> let a = States.min_elt !available_states in
+               available_states := States.remove a !available_states;
+               a
 
-let string_of_state (s,vars) = match vars with
-  | [] -> string_of_int s
-  | _ -> "(" ^ (string_of_int s) ^ "," ^ (string_of_pmap ":" string_of_typeML vars) ^ ")"
+
+
+let free_state a =
+  available_states := States.add a !available_states
+
+let string_of_state = string_of_int
 
 type sr = { 
     mutable states : States.t;
@@ -143,11 +116,11 @@ let print_sr sr =
   print_newline ()         
   
 let set_swap old_state new_state states =
-  let (states1,states2) = States.partition (fun z -> compare_state z old_state) states in
+  let (states1,states2) = States.partition (fun z -> z = old_state) states in
   if (States.is_empty states1) then states2 else (States.add new_state states2)
   
 let list_swap old_state new_state states =
-  let (states1,states2) = List.partition (fun z -> compare_state z old_state) states in
+  let (states1,states2) = List.partition (fun z -> z = old_state) states in
   if (states1 = []) then states2 else  new_state::states2
   
 let singleton_sr () = 
@@ -165,8 +138,8 @@ let singleton_sr () =
  }
 
 let substitute_state_atom_trans old_state new_state (s1,s2) = 
-  let s1' = (if compare_state s1 old_state then new_state else s1) in
-  let s2' = (if compare_state s2 old_state then new_state else s2) in
+  let s1' = (if s1 = old_state then new_state else s1) in
+  let s2' = (if s2 = old_state then new_state else s2) in
   (s1',s2')   
    
 let substitute_state_complex_trans old_state new_state (s1,s2,u) = 
@@ -174,7 +147,7 @@ let substitute_state_complex_trans old_state new_state (s1,s2,u) =
   (s1',s2',u)
 
 let substitute_state_partial_trans old_state new_state (s,n,u) =
-  let s' = (if compare_state s old_state then new_state else s) in
+  let s' = (if s = old_state then new_state else s) in
   (s',n,u)
   
 let substitute_state_esr state (sr,isExt,isWB,preds,p_back_trans) =
@@ -209,8 +182,8 @@ let basic_union init_state (sr1,isExt1,isWB1,preds1,p_back_trans1) (sr2,isExt2,i
   (sr,States.union isExt1 isExt2,States.union isWB1 isWB2,preds1@preds2,p_back_trans1@p_back_trans2)      
   
 let union ((sr1,isExt1,isWB1,preds1,p_back_trans1) as esr1) ((sr2,isExt2,isWB2,preds2,p_back_trans2) as esr2) =
-  let (i,_) = sr1.init_state in
-  let (j,_) = sr2.init_state in
+  let i = sr1.init_state in
+  let j = sr2.init_state in
   match (i < j,i=j) with
    | (true,_) -> (*print_endline ("Merging1 " ^ (string_of_state sr2.init_state) ^ " into " ^ (string_of_state sr1.init_state));*)
                  let (sr2,isExt2,isWB2,pred2,p_back_trans2) = substitute_state_esr sr1.init_state esr2  in

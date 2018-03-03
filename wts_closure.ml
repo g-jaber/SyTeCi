@@ -2,13 +2,13 @@ open Tcstruct
 open Wts
 
 let adjacency_matrix sr =
-  let (n,_) = (States.max_elt sr.states) in
+  let n = (States.max_elt sr.states) in
   let matrix_extern = Array.make_matrix (n+1) (n+1) false in
   let matrix_oeps = Array.make_matrix (n+1) (n+1) false in  
   let matrix_wb = Array.make_matrix (n+1) (n+1) false in  
-  List.iter (fun ((i,_),(j,_)) -> matrix_extern.(i).(j) <- true) sr.extern_transitions;
-  List.iter (fun ((i,_),(j,_)) -> matrix_oeps.(i).(j) <- true) sr.oeps_transitions;  
-  List.iter (fun ((i,_),(j,_)) -> matrix_wb.(i).(j) <- true) sr.wb_transitions;  
+  List.iter (fun (i,j) -> matrix_extern.(i).(j) <- true) sr.extern_transitions;
+  List.iter (fun (i,j) -> matrix_oeps.(i).(j) <- true) sr.oeps_transitions;  
+  List.iter (fun (i,j) -> matrix_wb.(i).(j) <- true) sr.wb_transitions;  
   (matrix_extern,matrix_oeps,matrix_wb)
 
 let matrix_to_trans states matrix =
@@ -16,7 +16,7 @@ let matrix_to_trans states matrix =
   let result = ref [] in
   for i = 0 to n-1 do
     for j = 0 to n-1 do
-      if matrix.(i).(j) then result := (get_state states i,get_state states j)::!result else ()
+      if matrix.(i).(j) then result := (i,j)::!result else ()
     done;
   done;
   !result
@@ -60,9 +60,6 @@ let reflexive_closure matrix =
   done;
   result  
   
-  
-
-
 
 let transitive_closure matrix = (* The transitive closure is implemented via a standard Warshall algorithm *)
   let n = Array.length matrix in (* We always consider square matrices *)
@@ -86,7 +83,7 @@ let sr_closure_aux sr =
   let matrix_refl_oeps = reflexive_closure matrix_oeps in
   let matrix_trans_extern = transitive_closure (product_matrix matrix_refl_oeps matrix_extern) in
   let matrix_trans_wb = transitive_closure (product_matrix matrix_refl_oeps matrix_wb) in  
-  let aux matrix (i,_) =
+  let aux matrix i =
     let n = Array.length matrix in
     for j = 0 to n-1 do 
       if matrix.(i).(j) then matrix_oeps.(j).(i) <- true else ()

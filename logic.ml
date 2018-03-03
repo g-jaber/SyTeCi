@@ -66,7 +66,7 @@ let rec simplify_arith_pred = function
   | AGreatEq (expr1,expr2) when (expr1 = expr2) -> ATrue
   | pred -> pred
 
-let rec trivially_false preds =
+let trivially_false preds =
 (*  let preds = List.map (fun pred -> iter 3  simplify_arith_pred pred) preds in*)
   (List.mem AFalse preds)
   || (List.fold_left (fun b -> fun pred -> (b || (List.mem (negate_arith_pred pred) preds))) false preds)

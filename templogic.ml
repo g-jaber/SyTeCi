@@ -33,7 +33,7 @@ let modality_from_annot (tag,h1,h2,h3,h4) =
         | WB -> NextWB (h1,h2,h3,h4)
         | Wrong -> failwith "Error: Cannot create a modality from the tag Wrong."  
     
-let rec string_of_modality = function
+let string_of_modality = function
   | Square -> "▫V"
   | SquarePub -> "▫K"
   | NextE (heapPre1,heapPre2,heapPost1,heapPost2) ->
@@ -77,19 +77,19 @@ let rec simplify_temp_formula formula = match formula with
 
 let rec tformula_of_tc = function
   | RuleVG sequent -> TPred (extract_pred_from_vg sequent)
-  | Stop sequent -> TPred AFalse (*TPred (negate_arith_pred (AAnd sequent.arith_ctx))*)
+  | Stop _ -> TPred AFalse (*TPred (negate_arith_pred (AAnd sequent.arith_ctx))*)
   | LOut _ -> TPred ATrue
   | ROut _ -> TPred AFalse
-  | RuleSext ((tc1,tc2),sequent) | RuleVProd ((tc1,tc2),sequent) -> TAnd [(tformula_of_tc tc1); (tformula_of_tc tc2)]
-  | Unfold (tc,sequent) | LUnfold (tc,sequent) | RUnfold (tc,sequent)  | Rewrite (tc,sequent) -> tformula_of_tc tc
+  | RuleSext ((tc1,tc2),_) | RuleVProd ((tc1,tc2),_) -> TAnd [(tformula_of_tc tc1); (tformula_of_tc tc2)]
+  | Unfold (tc,_) | LUnfold (tc,_) | RUnfold (tc,_)  | Rewrite (tc,_) -> tformula_of_tc tc
   | RuleK (tcs,sequent) -> 
       let aux new_tc =
-        let (preds,vars) = newelem_of_sequents sequent (get_root new_tc) in
+        let (_,vars) = newelem_of_sequents sequent (get_root new_tc) in
         Mod (SquarePub, TForAll (vars, tformula_of_tc new_tc))
       in TAnd (List.map aux tcs)  
   | RuleV (tcs,sequent) ->
         let aux new_tc =
-        let (preds,vars) = newelem_of_sequents sequent (get_root new_tc) in
+        let (_,vars) = newelem_of_sequents sequent (get_root new_tc) in
         Mod (Square, TForAll (vars, tformula_of_tc new_tc))
       in TAnd (List.map aux tcs)  
   | RuleE (tcs,sequent) ->
@@ -100,10 +100,10 @@ let rec tformula_of_tc = function
             | _ -> TForAll (vars, TImpl (preds, Mod (modality_from_annot annot,  tformula_of_tc tc')))
           end  
         in TAnd (List.map aux tcs)
-  | Circ (rho,backsequent,sequent) ->
+  | Circ (rho,backsequent,_) ->
        let svar = get_svar backsequent.id in
        SVar (svar, rho)
-  | Gen (rho,tc,sequent) ->
+  | Gen (rho,tc,_) ->
        let svar = get_svar ((get_root tc).id) in
        GFix (svar, rho, tformula_of_tc tc)          
   

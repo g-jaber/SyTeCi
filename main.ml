@@ -1,9 +1,3 @@
-open Skor
-open Tcstruct
-open Logic
-open Templogic
-open Wts_closure
-
 let get_arguments () = 
   let size_args = Array.length Sys.argv in
    if (size_args <= 2) then failwith ("Error: you should provide two files containing the programs you want to compare.");
@@ -34,15 +28,15 @@ let () =
         let (expr1,ty1) = get_term filename1 in
         let (expr2,_) = get_term filename2 in       
         let tc = Tcstruct.build_tc ty1 expr1 expr2 step1 step2 in 
-        let temp_form = iter 10 simplify_temp_formula (tformula_of_tc tc) in   
+        let temp_form = Logic.iter 10 Templogic.simplify_temp_formula (Templogic.tformula_of_tc tc) in   
         print_endline ("Temporal Formula:");
-        print_string (string_of_temp_formula temp_form);
+        print_string (Templogic.string_of_temp_formula temp_form);
         print_newline ();
         print_endline ("WTS:");
         let sr = Wts.build_sr tc in   
 (*        Wts.print_sr sr;
         print_endline ("Closed WTS:");  *)      
-        let sr' = sr_closure sr in
+        let sr' = Wts_closure.sr_closure sr in
         Wts_to_dot.dot_from_sr sr';     
 (*        print_endline ("Reachability:");
         let paths = backward_sr sr' in

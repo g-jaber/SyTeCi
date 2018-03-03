@@ -24,10 +24,15 @@ let rec is_ground_term vars = function
 
   
 let is_ground_term_with_hole vars expr = 
-  let bin_bool_or (b1,b2) (b3,b4) = (b1 || b3,b2 && b4) in
-  let rec aux = function
-   | Hole -> (true,true) 
-   | Var _ | Loc _ | Unit | Int _ | Bool _ -> (false,true)
+  let bin_bool_or (b1,b2) (b3,b4) = (b1 || b3, b2 && b4) in
+  let rec aux = function 
+  (* First boolean indicate if the term contain a Hole, the second boolean indicate if the term is ground *)
+   | Hole -> (true,true)
+   | Var x -> begin match lookup_pmap x vars with
+                | None -> (false,false)
+                | Some _ -> (false,true)
+              end    
+   | Loc _ | Unit | Int _ | Bool _ -> (false,true)
    | Plus (expr1,expr2) | Minus (expr1,expr2) | Mult (expr1,expr2) | Div (expr1,expr2) 
    | And (expr1,expr2) | Or (expr1,expr2) 
    | Equal (expr1,expr2) | NEqual (expr1,expr2)
@@ -97,7 +102,7 @@ and unif_aux_bin flag funconstr vars support gsubst1 gsubst2 u v =
       | Some (support',gsubst1',gsubst2',e1) -> plop (fun y -> funconstr (e1,y)) (unif flag vars support' gsubst1' gsubst2' v)
   
 let unif_sequent flag sequent_1 sequent_2 = match (sequent_1.formula,sequent_2.formula) with
-  | (RelSI (ty1, cb_context1, (expr11, rec_env11), (expr12, rec_env12)), RelSI (ty2, cb_context2, (expr21,rec_env21), (expr22, rec_env22))) ->
+  | (RelSI (ty1, _, (expr11, _), (expr12, _)), RelSI (ty2, cb_context2, (expr21,rec_env21), (expr22, rec_env22))) ->
     if (ty1 != ty2) then None else begin
       print_endline ("Comparing : " ^ (string_of_exprML expr11) ^ " and " ^ (string_of_exprML expr21));
       print_endline ("Comparing : " ^ (string_of_exprML expr12) ^ " and " ^ (string_of_exprML expr22));           
@@ -105,16 +110,16 @@ let unif_sequent flag sequent_1 sequent_2 = match (sequent_1.formula,sequent_2.f
       let result2 = unif flag sequent_1.ground_var_ctx [] [] [] (expr12,expr22) in
       begin match (result1,result2,flag) with
         | (Some (support1,gsubst11,gsubst12,expr21'),Some (support2,gsubst21,gsubst22,expr22'),false) ->
-          let sequent' = new_sequent sequent_2 (support1@support2) (RelSI (ty2, cb_context2, (expr21',rec_env21), (expr22', rec_env22))) in
-          Some (gsubst11@gsubst21,gsubst12@gsubst22,sequent')
-        | (Some ([],gsubst11,[],expr21'),Some ([],gsubst21,[],expr22'),true) -> Some (gsubst11@gsubst21,[],sequent_2)
-        | (Some (_,gsubst11,_,expr21'),Some (_,gsubst21,_,expr22'),true) -> failwith "Error in unif_sequent"            
+            let sequent' = new_sequent sequent_2 (support1@support2) (RelSI (ty2, cb_context2, (expr21',rec_env21), (expr22', rec_env22))) in
+            Some (gsubst11@gsubst21,gsubst12@gsubst22,sequent')
+        | (Some ([],gsubst11,[],_),Some ([],gsubst21,[],_),true) -> Some (gsubst11@gsubst21,[],sequent_2)
+        | (Some _,Some _,true) -> failwith "Error in unif_sequent"            
         | (_,_,_) -> None
       end
     end
   | _ -> failwith "Cannot unify sequents whose SKOR is not RelSI"  
   
-let rec unif_in_hist sequent hist = 
+let unif_in_hist sequent hist = 
   let hist' = List.filter (fun (seq,_) -> seq.j > sequent.j) hist in
   let rec aux = function
   | [] -> None

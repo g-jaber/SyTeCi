@@ -1,4 +1,3 @@
-open Tcstruct
 open Wts
 
 let adjacency_matrix sr =
@@ -11,7 +10,7 @@ let adjacency_matrix sr =
   List.iter (fun (i,j) -> matrix_wb.(i).(j) <- true) sr.wb_transitions;  
   (matrix_extern,matrix_oeps,matrix_wb)
 
-let matrix_to_trans states matrix =
+let matrix_to_trans matrix =
   let n = Array.length matrix in
   let result = ref [] in
   for i = 0 to n-1 do
@@ -91,7 +90,7 @@ let sr_closure_aux sr =
   in
   List.iter (aux matrix_trans_extern) (get_isRuleV sr);
   List.iter (aux matrix_trans_wb)  (get_isRuleK sr);
-  sr.oeps_transitions <- matrix_to_trans sr.states matrix_oeps;
+  sr.oeps_transitions <- matrix_to_trans matrix_oeps;
   sr
 
 let rec fixed_point f x =

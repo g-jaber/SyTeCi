@@ -7,12 +7,10 @@ let add_locvar heap v = let l = fresh_locvar () in (l,(l,v)::heap)
 
 let aux g (a,b,c,d,e,f) = (g a,b,c,d,e,f)
 
-  
 let aux_bin_red symbred cons_op = function
     | (expr1,expr2) when isval expr1 -> let (result,b) = symbred expr2 in (List.map (aux (fun x -> (cons_op (expr1,x)))) result,b)
     | (expr1,expr2) -> let (result,b) = symbred expr1 in (List.map (aux (fun x -> (cons_op (x,expr2)))) result,b)
-      
-  
+
 let aux_bin_arith cons heapPost symbred = 
   let (expr1,expr2,arith_op,cons_op) = Syntax.get_aop_from_expr cons in match (expr1, expr2) with
     | (Int n1, Int n2) -> let n = arith_op n1 n2 in ([(Int n,[],[],heapPost,[],[])],true)    
@@ -69,7 +67,7 @@ let rec symbred heapPost expr = match expr with
       end            
   | Assign (expr1,expr2) ->  aux_bin_red (symbred heapPost) (fun (x,y) -> Assign (x,y)) (expr1,expr2)
   | If (Bool b,expr1,expr2) -> if b then ([(expr1,[],[],heapPost,[], [])],true) else ([(expr2,[],[],heapPost,[], [])],true)
-  | If ((Var x),expr1,expr2) -> failwith "Error: Boolean variables are not allowed in the symbolic reduction"
+  | If ((Var _),_,_) -> failwith "Error: Boolean variables are not allowed in the symbolic reduction"
   | If (expr,expr1,expr2) -> let (result,b) = symbred heapPost expr in (List.map (aux (fun x -> (If (x,expr1,expr2)))) result,b)
   | Plus _ | Minus _ | Mult _ | Div _ -> aux_bin_arith expr heapPost (symbred heapPost)
   | And _ | Or _ -> aux_bin_bool expr heapPost (symbred heapPost)

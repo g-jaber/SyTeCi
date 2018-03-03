@@ -5,8 +5,6 @@ open Logic
 
 (* -------- SKORs ---------- *) 
 
-
-
 type tag =
   | Intern
   | Extern
@@ -21,16 +19,16 @@ type formula =
   | RelK of typeML * typeML * var_ctx * full_expr * full_expr
 
  
-let rec string_of_formula = function
-  | RelV (ty, cb_context, fexpr1, fexpr2) -> 
+let string_of_formula = function
+  | RelV (ty, _, fexpr1, fexpr2) -> 
       "V[" ^ (string_of_typeML ty) ^ "](" ^ (string_of_full_expr fexpr1) ^ "," ^ "," ^ (string_of_full_expr fexpr2) ^ ")"
-  | RelE (ty, cb_context, fexpr1, fexpr2) -> 
+  | RelE (ty, _, fexpr1, fexpr2) -> 
       "E[" ^ (string_of_typeML ty) ^ "](" ^ (string_of_full_expr fexpr1) ^ "," ^ "," ^ (string_of_full_expr fexpr2) ^ ")"
-  | RelSI (ty, cb_context, fexpr1, fexpr2) -> 
+  | RelSI (ty, _, fexpr1, fexpr2) -> 
       "S^i[" ^ (string_of_typeML ty) ^ "](" ^ (string_of_full_expr fexpr1) ^ "," ^ "," ^ (string_of_full_expr fexpr2) ^ ")"
-  | RelSE (ty, cb_context, fexpr1, fexpr2) -> 
+  | RelSE (ty, _, fexpr1, fexpr2) -> 
       "S^e[" ^ (string_of_typeML ty) ^ "](" ^ (string_of_full_expr fexpr1) ^ "," ^ "," ^ (string_of_full_expr fexpr2) ^ ")"
-  | RelK (ty1, ty2, cb_context, fctx1, fctx2) ->
+  | RelK (ty1, ty2, _, fctx1, fctx2) ->
      "K[" ^ (string_of_typeML ty1) ^ "," ^ (string_of_typeML ty2) ^ "](" ^ (string_of_full_expr fctx1) ^ "," ^ "," ^ (string_of_full_expr fctx2) ^ ")"
 
 (* -------- Sequents ---------- *) 

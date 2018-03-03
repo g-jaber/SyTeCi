@@ -1,9 +1,5 @@
-open Pmap
 open Syntax
 open Unif
-open Logic
-open Skor
-  
   
 let rec rewrite_ac vars expr = match expr with
   | Plus (Int 0,expr) -> rewrite_ac vars expr
@@ -50,10 +46,5 @@ let rec rewrite_ac vars expr = match expr with
   | Seq (expr1,expr2) -> Seq (rewrite_ac vars expr1,rewrite_ac vars expr2)
   | Pair (expr1,expr2) -> Pair (rewrite_ac vars expr1,rewrite_ac vars expr2)
   | Newref expr' -> Newref (rewrite_ac vars expr')
-  | Deref expr' -> expr
+  | Deref _ -> expr
   | Assign (expr1,expr2) -> Assign (expr1,rewrite_ac vars expr2)
-
-  
-
-
-

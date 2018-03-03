@@ -3,8 +3,6 @@ open Syntax
 open Pmap
 open Skor
 open Unif
-open Rewrite
-
 
 type kindTerm = IsVal | IsCallExtern of (id*typeML*exprML*eval_context) | IsRecCall of (id*exprML*exprML*eval_context)
   
@@ -36,7 +34,7 @@ let get_skor_from_tag (ty,funct_var_ctx,fexpr1,fexpr2) = function
     
 let get_elem_callexts funct_var_ctx (expr1,gamma1) (expr2,gamma2) =
   match (kind_of_term funct_var_ctx (expr1,gamma1), kind_of_term funct_var_ctx (expr2,gamma2)) with
-   | (IsCallExtern (f1,ty1,v1,k1), IsCallExtern (f2,ty2,v2,k2)) when f1 = f2 -> Some (ty1,(k1,gamma1),(v1,gamma1),(k2,gamma2),(v2,gamma2))
+   | (IsCallExtern (f1,ty1,v1,k1), IsCallExtern (f2,_,v2,k2)) when f1 = f2 -> Some (ty1,(k1,gamma1),(v1,gamma1),(k2,gamma2),(v2,gamma2))
    | _ -> None
 
 type annot_rele = tag*symbheap*symbheap*symbheap*symbheap  
@@ -81,21 +79,21 @@ let rec string_of_list = function
   | str::tl -> str ^ "," ^ (string_of_list tl)
   
 let rec string_of_tc = function
-  | Stop sequent -> "Stop "
-  | RuleVG sequent -> "RuleVG "
-  | LOut sequent -> "LOut "
-  | ROut sequent -> "LOut "
-  | RuleVProd ((tc1,tc2),sequent) -> "RuleVx (" ^ (string_of_tc tc1) ^ "," ^ (string_of_tc tc2) ^")"    
-  | RuleV (tcs,sequent) ->  "RuleV (" ^ (string_of_list (List.map string_of_tc tcs)) ^")"
-  | RuleK (tcs,sequent) -> "RuleK (" ^ (string_of_list (List.map string_of_tc tcs)) ^")"
-  | RuleSext ((tc1,tc2),sequent) -> "RuleSext (" ^ (string_of_tc tc1) ^ "," ^ (string_of_tc tc2) ^")"  
-  | Unfold (tc',sequent) ->  "Unfold (" ^ (string_of_tc tc') ^")"
-  | LUnfold (tc',sequent) -> "LUnfold (" ^ (string_of_tc tc') ^")"
-  | RUnfold (tc',sequent) -> "RUnfold (" ^ (string_of_tc tc') ^")"
-  | RuleE (tcs,sequent) -> "RuleE (" ^ (string_of_list (List.map (fun (_,tc) -> (string_of_tc tc)) tcs)) ^")"
-  | Rewrite (tc',sequent) -> "Rewrite (" ^ (string_of_tc tc')  ^")"
-  | Circ (_,_,sequent) -> "Circ "
-  | Gen (_,tc,sequent) -> "Gen (" ^ (string_of_tc tc) ^ ")"    
+  | Stop _ -> "Stop "
+  | RuleVG _ -> "RuleVG "
+  | LOut _ -> "LOut "
+  | ROut _ -> "LOut "
+  | RuleVProd ((tc1,tc2),_) -> "RuleVx (" ^ (string_of_tc tc1) ^ "," ^ (string_of_tc tc2) ^")"    
+  | RuleV (tcs,_) ->  "RuleV (" ^ (string_of_list (List.map string_of_tc tcs)) ^")"
+  | RuleK (tcs,_) -> "RuleK (" ^ (string_of_list (List.map string_of_tc tcs)) ^")"
+  | RuleSext ((tc1,tc2),_) -> "RuleSext (" ^ (string_of_tc tc1) ^ "," ^ (string_of_tc tc2) ^")"  
+  | Unfold (tc',_) ->  "Unfold (" ^ (string_of_tc tc') ^")"
+  | LUnfold (tc',_) -> "LUnfold (" ^ (string_of_tc tc') ^")"
+  | RUnfold (tc',_) -> "RUnfold (" ^ (string_of_tc tc') ^")"
+  | RuleE (tcs,_) -> "RuleE (" ^ (string_of_list (List.map (fun (_,tc) -> (string_of_tc tc)) tcs)) ^")"
+  | Rewrite (tc',_) -> "Rewrite (" ^ (string_of_tc tc')  ^")"
+  | Circ (_,_,_) -> "Circ "
+  | Gen (_,tc,_) -> "Gen (" ^ (string_of_tc tc) ^ ")"    
   
 let rec mix_lists g list1 = function
   | [] -> []
@@ -206,14 +204,14 @@ let rec build_tc_rule flag hist sequent =
      begin match (kind_of_term funct_var_ctx (expr1,gamma1),kind_of_term funct_var_ctx (expr2,gamma2),sequent.j,sequent.k,flag) with
        | (IsRecCall _, _,0,_,_) -> Continue (LOut sequent)
        | (_, IsRecCall _,_,0,_) -> Continue (ROut sequent)          
-       | (IsRecCall (f1,body1,val1,ctx1), IsRecCall (f2,body2,val2,ctx2),j,k,true) ->
+       | (IsRecCall (_,body1,val1,ctx1), IsRecCall (_,body2,val2,ctx2),j,k,true) ->
          let expr1' = fill_hole ctx1 (App (body1,val1)) in
          let expr2' = fill_hole ctx2 (App (body2,val2)) in
          let sequent' = new_sequent sequent [] ~j:(j-1) ~k:(k-1) (RelE (ty, funct_var_ctx, (expr1',gamma1), (expr2',gamma2))) in         
          let premise = build_tc_rule false hist sequent' in
          begin match premise with
            | Continue tc_struct ->  Continue (Unfold (tc_struct,sequent))
-           | Backtrack (gsubst,bt_sequent,gen_sequent) as bt -> 
+           | Backtrack (_,bt_sequent,_) as bt -> 
                print_endline ("Possible dubious backtracking " ^ (string_of_int bt_sequent.id) ^ " and " ^ (string_of_int sequent'.id));
                bt
          end
@@ -229,7 +227,7 @@ let rec build_tc_rule flag hist sequent =
            | (Some (gsubst1,[],_,gen_sequent)) -> 
                print_endline ("Circ with " ^ (string_of_gsubst gsubst1)); 
                Continue (Circ (gsubst1,gen_sequent,sequent'))         
-           | (Some (gsubst1,gsubst2,bt_sequent,gen_sequent)) -> 
+           | (Some (_,gsubst2,bt_sequent,gen_sequent)) -> 
                print_endline "Backtrack"; 
                Backtrack (gsubst2,bt_sequent,gen_sequent)
            | _ -> let expr1'' = fill_hole ctx1' (App (body1,val1)) in (* If we have not seen it, we unfold the fixed-points *)
@@ -251,7 +249,7 @@ let rec build_tc_rule flag hist sequent =
                         end else bt
                   end  
          end     
-       | (IsRecCall (f1,body1,val1,ctx1), _,j,_,_) -> 
+       | (IsRecCall (_,body1,val1,ctx1), _,j,_,_) -> 
            print_endline ("LUnfold : " ^ (string_of_exprML expr1) ^ " and " ^ (string_of_exprML expr2));
            let expr1' = fill_hole ctx1 (App (body1,val1)) in
            let sequent' = new_sequent sequent [] ~j:(j-1)  (RelE (ty,funct_var_ctx,(expr1',gamma1),(expr2,gamma2))) in
@@ -260,7 +258,7 @@ let rec build_tc_rule flag hist sequent =
              | Continue tc_struct ->  Continue (LUnfold (tc_struct,sequent))
              | Backtrack _ -> premise           
            end
-       | (_, IsRecCall (f2,body2,val2,ctx2),_,k,_) ->
+       | (_, IsRecCall (_,body2,val2,ctx2),_,k,_) ->
            print_endline ("RUnfold : " ^ (string_of_exprML expr1) ^ " and " ^ (string_of_exprML expr2));       
            let expr2' = fill_hole ctx2 (App (body2,val2)) in
            let sequent' = new_sequent sequent [] ~k:(k-1) (RelE (ty,funct_var_ctx,(expr1,gamma1),(expr2',gamma2))) in       
@@ -300,7 +298,7 @@ let extract_pred_from_vg sequent =
     match sequent.formula with
         | RelV (TUnit,_,_,_)  -> ATrue      
         | RelV (TBool,_,(Bool b1,_), (Bool b2,_)) when b1 = b2 -> ATrue
-        | RelV (TBool,_,(Bool b1,_), (Bool b2,_)) -> AFalse
+        | RelV (TBool,_,(Bool _,_), (Bool _,_)) -> AFalse
         | RelV (TInt,_,(v1,_), (v2,_)) -> (AEqual (AExpr v1,AExpr v2))
         | _ -> failwith "Error: The rule VG has been used on a non-ground type."  
         

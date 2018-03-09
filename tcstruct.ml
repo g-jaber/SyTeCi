@@ -103,15 +103,22 @@ let rec mix_lists g list1 = function
 let rec symb_val = function
   | TUnit -> [(Unit,empty_pmap,empty_pmap)]
   | TBool -> [(Bool true,empty_pmap,[]);(Bool false,empty_pmap,[])]
-  | TInt -> let x = (Logic.fresh_lvar ()) in
-            [(Var x, empty_pmap, [(x,TInt)])]
+  | TInt -> 
+    let x = (Logic.fresh_lvar ()) in
+    [(Var x, empty_pmap, [(x,TInt)])]
   | (TArrow (_,_)) as ty -> let x = Logic.fresh_lvar () in  [(Var x, [(x,ty)],empty_pmap)]
-  | TProd (ty1,ty2) -> let result1 = symb_val ty1 in
-                       let result2 = symb_val ty2 in
-                       let g = fun ((val1,funct_var_ctx1,ground_var_ctx1),(val2,funct_var_ctx2,ground_var_ctx2)) -> 
-                          (Pair (val1,val2), funct_var_ctx1@funct_var_ctx2, ground_var_ctx1@ground_var_ctx2) in
-                       mix_lists g result1 result2
-  | TRef _ -> failwith "Error: Types with occurencences of ref subtypes are not supported."                    
+  | TProd (ty1,ty2) -> 
+    let result1 = symb_val ty1 in
+    let result2 = symb_val ty2 in
+    let g = fun ((val1,funct_var_ctx1,ground_var_ctx1),(val2,funct_var_ctx2,ground_var_ctx2)) -> 
+                 (Pair (val1,val2), funct_var_ctx1@funct_var_ctx2, ground_var_ctx1@ground_var_ctx2) in
+    mix_lists g result1 result2
+  | TRef _ -> failwith "Error: Types with occurencences of ref subtypes are not supported."
+  | TVar _ -> 
+    Debug.print_debug "Generating symbolic value for a type variable";  
+    let x = (Logic.fresh_lvar ()) in
+            [(Var x, empty_pmap, [(x,TInt)])]
+  | TUndef -> failwith "Error, undefined type ! Pleaser report." 
 
 type 'a result_build_tc = 
   | Continue of 'a
@@ -202,8 +209,10 @@ let rec build_tc_rule flag hist sequent =
           
   | (_,RelSI (ty, funct_var_ctx, (expr1,gamma1), (expr2,gamma2))) ->  
      begin match (kind_of_term funct_var_ctx (expr1,gamma1),kind_of_term funct_var_ctx (expr2,gamma2),sequent.j,sequent.k,flag) with
-       | (IsRecCall _, _,0,_,_) -> Continue (LOut sequent)
-       | (_, IsRecCall _,_,0,_) -> Continue (ROut sequent)          
+       | (IsRecCall _, _,0,_,_) -> 
+            Debug.print_debug ("LOut reached: " ^ (string_of_formula sequent.formula));
+            Continue (LOut sequent)
+       | (_, IsRecCall _,_,0,_) -> Debug.print_debug "ROut reached"; Continue (ROut sequent)          
        | (IsRecCall (_,body1,val1,ctx1), IsRecCall (_,body2,val2,ctx2),j,k,true) ->
          let expr1' = fill_hole ctx1 (App (body1,val1)) in
          let expr2' = fill_hole ctx2 (App (body2,val2)) in
@@ -275,7 +284,7 @@ let rec build_tc_rule flag hist sequent =
          let build_tc_rule_expr (fexpr1,fexpr2,heapPre1,heapPre2,heapPost1,heapPost2,vars,preds) =
            let tag = select_tag funct_var_ctx fexpr1 fexpr2 in
            begin match tag with
-             | Wrong -> Continue ((Wrong,heapPre1,heapPre2,heapPost1,heapPost2),Stop sequent) 
+             | Wrong -> Continue ((Wrong,heapPre1,heapPre2,heapPost1,heapPost2),Stop (new_sequent sequent vars ~arith_ctx:preds sequent.formula)) 
              | _ ->
                let skor' = get_skor_from_tag (ty,funct_var_ctx,fexpr1,fexpr2) tag in
                let premise = build_tc_rule false hist (new_sequent sequent vars ~arith_ctx:preds skor')

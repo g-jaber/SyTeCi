@@ -27,10 +27,21 @@ let aux_bin_arith cons heapPost symbred =
 
 let aux_bin_arithbool cons heapPost symbred = 
   let (expr1,expr2,arithbool_op,cons_op) = Syntax.get_abop_from_expr cons in match (expr1, expr2) with
-    | (Int n1, Int n2) -> let b = arithbool_op n1 n2 in ([(Bool b,[],[],heapPost,[],[])],true)    
-    | (Int n, Var x) -> ([(Bool true,[],[],heapPost,[],[expr_to_arith_pred (cons_op (Int n,Var x))]);(Bool false,[],[],heapPost,[],[negate_arith_pred (expr_to_arith_pred (cons_op (Int n,Var x)))])],true)
-    | (Var x, Int n) -> ([(Bool true,[],[],heapPost,[],[expr_to_arith_pred (cons_op (Var x,Int n))]);(Bool false,[],[],heapPost,[],[negate_arith_pred (expr_to_arith_pred (cons_op (Var x,Int n)))])],true)
-    | (Var x1, Var x2) -> ([(Bool true,[],[],heapPost,[],[expr_to_arith_pred (cons_op (Var x1,Var x2))]);(Bool false,[],[],heapPost,[],[negate_arith_pred (expr_to_arith_pred (cons_op (Var x1,Var x2)))])],true)
+    | (Int n1, Int n2) -> 
+      let b = arithbool_op n1 n2 in 
+      ([(Bool b,[],[],heapPost,[],[])],true)    
+    | (Int n, Var x) -> 
+      ([(Bool true,[],[],heapPost,[],[expr_to_arith_pred (cons_op (Int n,Var x))])
+        ;(Bool false,[],[],heapPost,[],[negate_arith_pred (expr_to_arith_pred (cons_op (Int n,Var x)))])]
+       ,true)
+    | (Var x, Int n) -> 
+      ([(Bool true,[],[],heapPost,[],[expr_to_arith_pred (cons_op (Var x,Int n))])
+        ;(Bool false,[],[],heapPost,[],[negate_arith_pred (expr_to_arith_pred (cons_op (Var x,Int n)))])]
+       ,true)
+    | (Var x1, Var x2) -> 
+      ([(Bool true,[],[],heapPost,[],[expr_to_arith_pred (cons_op (Var x1,Var x2))])
+        ;(Bool false,[],[],heapPost,[],[negate_arith_pred (expr_to_arith_pred (cons_op (Var x1,Var x2)))])]
+       ,true)
     | (expr1,expr2) -> aux_bin_red symbred cons_op (expr1,expr2) 
     
 let aux_bin_bool cons heapPost symbred = 
@@ -43,8 +54,8 @@ let aux_bin_bool cons heapPost symbred =
 
     
 let rec symbred heapPost expr = match expr with
-  | App (Fun (var,_,expr1),expr2) when (isval expr2) -> ([(subst expr1 (Var var) expr2, [], [], heapPost, [], [])],true)
-  | App (Fix (idfun,_,var,_,expr1) as expr',expr2) when (isval expr2) -> ([(subst expr1 (Var var) expr2, [(idfun,expr')], [], heapPost, [], [])],true)
+  | App (Fun ((var,_),expr1),expr2) when (isval expr2) -> ([(subst expr1 (Var var) expr2, [], [], heapPost, [], [])],true)
+  | App (Fix ((idfun,_),(var,ty),expr1),expr2) when (isval expr2) -> ([(subst expr1 (Var var) expr2, [(idfun,Fun ((var,ty),expr1))], [], heapPost, [], [])],true)
   | App (expr1,expr2) -> aux_bin_red (symbred heapPost) (fun (x,y) -> App (x,y)) (expr1,expr2)
   | Seq (Unit,expr2) -> ([(expr2,[],[],heapPost,[], [])],true)
   | Seq (expr1,expr2) -> let (result,b) = symbred heapPost expr1 in (List.map (aux (fun x -> (Seq (x,expr2)))) result,b)

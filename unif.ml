@@ -78,8 +78,8 @@ let rec unif flag vars support gsubst1 gsubst2 (expr1,expr2) = match (expr1,expr
   | (Not e1,Not e2) | (Newref e1,Newref e2) | (Deref e1,Deref e2) ->
     let funconstr = get_consfun_from_unexpr expr2 in
     plop funconstr (unif flag vars support gsubst1  gsubst2 (e1,e2))
-  | (Fun (_,_,e1),Fun (var2,ty2,e2)) -> plop (fun x -> Fun (var2,ty2,x)) (unif flag vars support gsubst1 gsubst2 (e1,e2))
-  | (Fix (_,_,_,_,e1),Fix (idfun2,ty2,var2,tyv2,e2)) -> plop (fun x -> Fix (idfun2,ty2,var2,tyv2,x))  (unif flag vars support gsubst1 gsubst2 (e1,e2))   
+  | (Fun ((_,_),e1),Fun ((var2,ty2),e2)) -> plop (fun x -> Fun ((var2,ty2),x)) (unif flag vars support gsubst1 gsubst2 (e1,e2))
+  | (Fix ((_,_),(_,_),e1),Fix ((idfun2,ty2),(var2,tyv2),e2)) -> plop (fun x -> Fix ((idfun2,ty2),(var2,tyv2),x))  (unif flag vars support gsubst1 gsubst2 (e1,e2))   
   | (If (e11,e12,e13), If (e21,e22,e23)) -> begin match (unif flag vars support gsubst1 gsubst2 (e11,e21)) with
                                                    | None -> None
                                                    | Some (support',gsubst1',gsubst2',e21') -> unif_aux_bin flag (fun (x,y) -> If (e21',x,y)) vars support' gsubst1' gsubst2' (e12,e22) (e13,e23)

@@ -1,6 +1,7 @@
-fun (n:Int) ->
+let fact n =
   let res = ref 1 in
-  let aux = fix aux_fact(m:Int):(Int -> Unit) ->
+  let rec aux m =
      if (m <= 1) then ()
-     else res := !res*m; aux_fact (m-1)
+     else res := !res*m; aux (m-1)
   in aux n; !res
+in fact  

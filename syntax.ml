@@ -2,6 +2,8 @@ open Pmap
 
 type id = string
 type loc = int
+type typevar = string
+
 
 (* Types *)
 type typeML =
@@ -11,8 +13,11 @@ type typeML =
   | TArrow of typeML * typeML
   | TProd of typeML * typeML  
   | TRef of typeML
+  | TVar of typevar
+  | TUndef
   
-type var_ctx = (id,typeML) pmap   
+type var_ctx = (id,typeML) pmap
+type loc_ctx = (loc,typeML) pmap
   
 let rec string_of_typeML = function
   | TUnit -> "Unit"
@@ -21,13 +26,41 @@ let rec string_of_typeML = function
   | TArrow (ty1,ty2) -> (string_of_typeML ty1) ^ "->" ^ (string_of_typeML ty2)
   | TProd (ty1,ty2) -> (string_of_typeML ty1) ^ "*" ^ (string_of_typeML ty2)
   | TRef ty -> "ref " ^ (string_of_typeML ty)
-  
-  
+  | TVar typevar -> typevar
+  | TUndef -> ""
 
-  
-let string_of_vars = string_of_pmap ":" string_of_typeML  
+
+
+let string_of_vars = 
+  let aux = function
+    | TUndef -> ""
+    | ty -> "::" ^ (string_of_typeML ty)
+  in string_of_pmap "" aux
+
+let count_typevar = ref 0
+let fresh_typevar () = 
+  let a = !count_typevar in
+  count_typevar := !count_typevar + 1; 
+  TVar ("'a" ^ (string_of_int a))
+
+let rec subst_type tvar sty ty = match ty with
+  | TUnit | TInt | TBool | TRef _ -> ty
+  | TArrow (ty1,ty2) -> TArrow (subst_type tvar sty ty1, subst_type tvar sty ty2)
+  | TProd (ty1,ty2) -> TProd (subst_type tvar sty ty1, subst_type tvar sty ty2)
+  | TVar tvar' when tvar = tvar' -> sty
+  | TVar _ -> ty
+  | TUndef -> failwith "Error: undefined type, please report."
+
+let subst_tctx tvar sty = 
+  List.map (fun (x,ty) -> (x,subst_type tvar sty ty))
   
 (* Expressions *)
+
+let count_evar = ref 0
+let fresh_evar () = 
+  let x = !count_evar in
+  count_evar := !count_evar + 1;("_y" ^ (string_of_int x))
+
 type exprML =
   | Var of id
   | Loc of loc  
@@ -48,8 +81,8 @@ type exprML =
   | Great of exprML * exprML
   | GreatEq of exprML * exprML  
   | If of exprML * exprML * exprML
-  | Fun of id * typeML * exprML
-  | Fix of id * typeML * id * typeML * exprML
+  | Fun of (id * typeML) * exprML
+  | Fix of (id * typeML) * (id * typeML) * exprML
   | Let of id * exprML * exprML
   | App of exprML * exprML
   | Seq of exprML * exprML  
@@ -72,12 +105,16 @@ let rec isval = function
   
 let rec subst expr value value' = match expr with
   | Var _ when (expr = value) -> value'
-  | Loc _ when (expr = value) -> value'  
+  | Loc _ when (expr = value) -> value'
   | Hole when (expr = value) -> value'
+  | Var _ | Loc _ | Hole | Unit | Int _ | Bool _ -> expr
   | Plus (expr1,expr2) -> Plus (subst expr1 value value', subst expr2 value value')
   | Minus (expr1,expr2) -> Minus (subst expr1 value value', subst expr2 value value')
   | Mult (expr1,expr2) -> Mult (subst expr1 value value', subst expr2 value value')
   | Div (expr1,expr2) -> Div (subst expr1 value value', subst expr2 value value')
+  | And (expr1,expr2) -> And (subst expr1 value value', subst expr2 value value')
+  | Or (expr1,expr2) -> Or (subst expr1 value value', subst expr2 value value')
+  | Not expr -> Not (subst expr value value')  
   | Equal (expr1,expr2) -> Equal (subst expr1 value value', subst expr2 value value')
   | NEqual (expr1,expr2) -> NEqual (subst expr1 value value', subst expr2 value value')  
   | Less (expr1,expr2) -> Less (subst expr1 value value', subst expr2 value value')
@@ -85,8 +122,10 @@ let rec subst expr value value' = match expr with
   | Great (expr1,expr2) -> Great (subst expr1 value value', subst expr2 value value')
   | GreatEq (expr1,expr2) -> GreatEq (subst expr1 value value', subst expr2 value value')  
   | If (expr1,expr2,expr3) -> If (subst expr1 value value', subst expr2 value value', subst expr3 value value')  
-  | Fun (var',ty,expr') when (Var var' <> value) -> Fun (var', ty, subst expr' value value')
-  | Fix (idfun,tyf,var',tyv,expr') when ((Var var' <> value) && (Var idfun <> value)) -> Fix (idfun, tyf, var', tyv, subst expr' value value')
+  | Fun ((var',ty),expr') when (Var var' <> value) -> Fun ((var', ty), subst expr' value value')
+  | Fun _ -> expr
+  | Fix ((idfun,tyf),(var',tyv),expr') when ((Var var' <> value) && (Var idfun <> value)) -> Fix ((idfun, tyf), (var', tyv), subst expr' value value')
+  | Fix _ -> expr
   | Let (var',expr1,expr2) when (Var var' <> value) -> Let (var', subst expr1 value value', subst expr2 value value')
   | Let (var',expr1,expr2) -> Let (var', subst expr1 value value', expr2)  
   | App (expr1,expr2) -> App (subst expr1 value value', subst expr2 value value')
@@ -95,8 +134,11 @@ let rec subst expr value value' = match expr with
   | Newref expr' -> Newref (subst expr' value value')
   | Deref expr' -> Deref (subst expr' value value')    
   | Assign (expr1,expr2) -> Assign (subst expr1 value value', subst expr2 value value')
-  | _ -> expr  
- 
+
+let string_of_typed_var = function
+  | (x,TUndef) -> x
+  | (x,ty) -> "(" ^ x ^ ":" ^ (string_of_typeML ty) ^ ")"
+  
 let rec string_of_exprML = function
   | Var x -> x
   | Loc l -> "l" ^ (string_of_int l) 
@@ -118,8 +160,8 @@ let rec string_of_exprML = function
   | Great (e1,e2) -> "(" ^ (string_of_exprML e1) ^ ">" ^ (string_of_exprML e2) ^ ")"
   | GreatEq (e1,e2) -> "(" ^ (string_of_exprML e1) ^ ">=" ^ (string_of_exprML e2) ^ ")"  
   | If (e1,e2,e3) -> "if " ^ (string_of_exprML e1) ^ " then " ^ (string_of_exprML e2) ^ " else " ^ (string_of_exprML e3)
-  | Fun (var,ty,e) -> "fun (" ^ var ^ ":" ^ (string_of_typeML ty) ^ ") -> " ^ (string_of_exprML e)
-  | Fix (idfun,tyf,var,tyv,e) -> idfun ^ "(" ^ var ^ ":" ^ (string_of_typeML tyv) ^ "):(" ^ (string_of_typeML tyf) ^") -> " ^ (string_of_exprML e)
+  | Fun (typedvar,e) -> "fun " ^ (string_of_typed_var typedvar) ^ " -> " ^ (string_of_exprML e)
+  | Fix (typedvar1,typedvar2,e) -> "fix " ^ (string_of_typed_var typedvar1) ^ " " ^  (string_of_typed_var typedvar2) ^  " -> " ^ (string_of_exprML e)
   | Let (var,e1,e2) -> "let " ^ var ^ " = " ^ (string_of_exprML e1) ^ " in " ^ (string_of_exprML e2)
   | Seq (e1,e2) -> (string_of_exprML e1) ^ " ; " ^ (string_of_exprML e2)
   | App (Var f,e2) -> f ^" " ^ (string_of_exprML e2)  
@@ -188,7 +230,7 @@ let string_of_functional_env = string_of_pmap "->" string_of_exprML
 
 type full_expr = exprML*functional_env
 
-let string_of_full_expr (expr,gamma) = "(" ^ (string_of_exprML expr) ^ "," ^ (string_of_pmap "->" string_of_exprML gamma) ^ ")"
+let string_of_full_expr (expr,gamma) = "(" ^ (string_of_exprML expr) ^ ",[" ^ (string_of_pmap "->" string_of_exprML gamma) ^ "])"
   
 (* Evaluation Contexts *)  
   

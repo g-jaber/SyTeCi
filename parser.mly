@@ -12,7 +12,7 @@
 %token NEQ LESS LESSEQ
 %token TRUE FALSE
 %token LPAR RPAR COMMA COLON SEMICOLON
-%token LET IN
+%token LET REC IN
 %token FUN FIX ARROW
 %token IF THEN ELSE
 %token UNIT
@@ -48,9 +48,10 @@ expr:
   | expr SEMICOLON expr         { Seq ($1, $3) }
   | LPAR expr COMMA expr RPAR   { Pair ($2, $4) }
   | IF expr THEN expr ELSE expr        { If ($2, $4, $6) }
-  | FUN LPAR VAR COLON ty RPAR ARROW expr { Fun ($3, $5, $8) }
-  | FIX VAR LPAR VAR COLON ty RPAR COLON ty ARROW expr { Fix ($2,$9, $4, $6, $11) }
-  | LET VAR EQ expr IN expr { Let ($2, $4, $6) }
+  | FUN typed_ident ARROW expr { Fun ($2, $4) }
+  | FIX typed_ident typed_ident ARROW expr { Fix ($2,$3, $5) }
+  | LET VAR list_ident EQ expr IN expr { Let ($2, List.fold_right (fun var expr -> Fun (var,expr)) $3 $5, $7) }
+  | LET REC VAR typed_ident list_ident EQ expr IN expr { Let ($3, Fix (($3,TUndef),$4, List.fold_right (fun var expr -> Fun (var,expr)) $5 $7), $9) }  
   | REF expr         { Newref $2 }    
   | expr ASSIGN expr { Assign ($1,$3) }
   | DEREF expr       { Deref $2 }  
@@ -79,6 +80,14 @@ simple_expr:
   | FALSE           { Bool false }    
   | LPAR expr RPAR   { $2 }
 
+typed_ident:
+  | UNIT { let var = fresh_evar () in (var,TUnit) }
+  | VAR { ($1,TUndef) }
+  | LPAR VAR COLON ty RPAR { ($2,$4) }
+  
+list_ident :
+  |  { [] }
+  | list_ident typed_ident {$2::$1}  
 
 ty:
   | TUNIT        { TUnit }

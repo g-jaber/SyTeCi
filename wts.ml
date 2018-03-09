@@ -23,7 +23,7 @@ let polarity_from_tag = function
   | Wrong -> PI
 
 let string_of_label (heapPre1,heapPre2,heapPost1,heapPost2,preds,polarity) =
-   let string_heaps = (string_of_symb_heap heapPre1) ^ "," ^(string_of_symb_heap heapPre2) ^ "," ^(string_of_symb_heap heapPost1) ^ "," ^ (string_of_symb_heap heapPost2) in
+   let string_heaps = (string_of_symb_heap heapPre1) ^ "↝" ^ (string_of_symb_heap heapPost1) ^ "," ^ (string_of_symb_heap heapPre2) ^ "↝" ^ (string_of_symb_heap heapPost2) in
    let string_polarity = string_of_polarity polarity in
    let string_preds = string_of_arith_pred preds in
    match string_preds with
@@ -211,14 +211,16 @@ let build_esr_ruleO polarity = function
 let build_pintern_trans sequent s ((sr,_,_,preds,_),(tag,hpre1,hpre2,hpost1,hpost2),sequent') =
   let (preds',_) = newelem_of_sequents sequent sequent' in
   let polarity = polarity_from_tag tag in
-  let full_preds = simplify_arith_pred (AAnd (preds@preds')) in
-  (s,sr.init_state,(hpre1,hpre2,hpost1,hpost2,full_preds,polarity))
+  let full_preds = full_arith_simplification (simplify_arith_pred (AAnd (preds@preds'))) in
+  match full_preds with
+    | AFalse -> []
+    | _ -> [(s,sr.init_state,(hpre1,hpre2,hpost1,hpost2,full_preds,polarity))]
 
 let build_pintern_trans_incons sequent s ((_,_,_,preds,_),(tag,hpre1,hpre2,hpost1,hpost2),sequent') =
   let (preds',_) = newelem_of_sequents sequent sequent' in
   let polarity = polarity_from_tag tag in
   let neg_preds = negate_arith_pred (AAnd preds) in
-  let full_preds = simplify_arith_pred (simplify_arith_pred (AAnd (neg_preds::preds'))) in
+  let full_preds = full_arith_simplification (simplify_arith_pred (simplify_arith_pred (simplify_arith_pred (AAnd (neg_preds::preds'))))) in
   match full_preds with
    | AFalse -> []
    | _ -> let s' = fresh_state() in [((s,s',(hpre1,hpre2,hpost1,hpost2,full_preds,polarity)),s')]  
@@ -233,7 +235,7 @@ let build_esr_ruleP sequent esrs_a = match esrs_a with
       let isWB' = States.of_list (List.map (fun ((sr',_,_,_,_),_,_) -> sr'.init_state) isWB_a) in          
 (*      let new_incons_states = List.map (fun _ -> fresh_state ()) esrs_a in*)
       let (sr,isExt,isWB,_,p_back_trans) = List.fold_left (fun esr1 (esr2,_,_) -> basic_union new_init_state esr1 esr2) esr esrs_a' in      
-      let pintern_transitions = List.map (build_pintern_trans sequent new_init_state) esrs_a in
+      let pintern_transitions = List.flatten (List.map (build_pintern_trans sequent new_init_state) esrs_a) in
       let (pintern_transitions_incons,new_incons_states) = List.split (List.flatten (List.map (build_pintern_trans_incons sequent new_init_state) esrs_a)) in
       sr.states <- States.add new_init_state sr.states;  
       List.iter (fun s -> sr.states <- States.add s sr.states) new_incons_states;

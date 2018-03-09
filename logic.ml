@@ -8,11 +8,11 @@ let rec iter n f x = match n with
 let count_locvar = ref 0
 let fresh_locvar () = 
   let l = !count_locvar in
-  count_locvar := !count_locvar + 1; ("l" ^ (string_of_int l))
+  count_locvar := !count_locvar + 1; ("ℓ" ^ (string_of_int l))
 
 let string_of_symb_heap = function
   | [] -> "ε"
-  | heap -> "[" ^ (string_of_pmap "->" string_of_exprML heap) ^ "]"  
+  | heap -> "[" ^ (string_of_pmap "↪" string_of_exprML heap) ^ "]"  
   
 let count_lvar = ref 0
 let fresh_lvar () = 
@@ -65,6 +65,7 @@ let rec simplify_arith_pred = function
   | AGreat (expr1,expr2) when (expr1 = expr2) -> AFalse
   | AGreatEq (expr1,expr2) when (expr1 = expr2) -> ATrue
   | pred -> pred
+  
 
 let trivially_false preds =
 (*  let preds = List.map (fun pred -> iter 3  simplify_arith_pred pred) preds in*)
@@ -93,11 +94,26 @@ let rec string_of_arith_pred = function
   | AExpr expr -> Syntax.string_of_exprML expr
   | ATrue -> "True"
   | AFalse -> "False"
-  | AAnd preds -> string_of_conj " /\\ " string_of_arith_pred preds
-  | AOr preds ->  string_of_conj " \\/ " string_of_arith_pred preds  
+  | AAnd preds -> string_of_conj " ∧ " string_of_arith_pred preds
+  | AOr preds ->  string_of_conj " ∨ " string_of_arith_pred preds  
   | AEqual (pred1,pred2) -> (string_of_arith_pred pred1) ^ " = " ^ (string_of_arith_pred pred2)
-  | ANEqual (pred1,pred2) -> (string_of_arith_pred pred1) ^ " <> " ^ (string_of_arith_pred pred2)
+  | ANEqual (pred1,pred2) -> (string_of_arith_pred pred1) ^ " ≠ " ^ (string_of_arith_pred pred2)
   | ALess (pred1,pred2) -> (string_of_arith_pred pred1) ^ " < " ^ (string_of_arith_pred pred2)
-  | ALessEq (pred1,pred2) -> (string_of_arith_pred pred1) ^ " <= " ^ (string_of_arith_pred pred2)
+  | ALessEq (pred1,pred2) -> (string_of_arith_pred pred1) ^ " ≤ " ^ (string_of_arith_pred pred2)
   | AGreat (pred1,pred2) -> (string_of_arith_pred pred1) ^ " > " ^ (string_of_arith_pred pred2)
-  | AGreatEq (pred1,pred2) -> (string_of_arith_pred pred1) ^ " >= " ^ (string_of_arith_pred pred2)
+  | AGreatEq (pred1,pred2) -> (string_of_arith_pred pred1) ^ " ≥ " ^ (string_of_arith_pred pred2)
+
+let rec full_arith_simplification_aux = function
+  | [] -> []
+  | (AEqual (p1,p2) as apred)::preds -> if (List.mem (ANEqual (p1,p2)) preds) then [AFalse] else apred::(List.filter (fun x -> x <> apred) (full_arith_simplification_aux preds))
+  | (ANEqual (p1,p2) as apred)::preds -> if (List.mem (AEqual (p1,p2)) preds) then [AFalse] else apred::(List.filter (fun x -> x <> apred) (full_arith_simplification_aux preds))
+  | (ALess (p1,p2) as apred)::preds -> if (List.mem (AGreatEq (p1,p2)) preds) then [AFalse] else apred::(List.filter (fun x -> x <> apred) (full_arith_simplification_aux preds))
+  | (ALessEq (p1,p2) as apred)::preds -> if (List.mem (AGreat (p1,p2)) preds) then [AFalse] else apred::(List.filter (fun x -> x <> apred) (full_arith_simplification_aux preds))
+  | (AGreat (p1,p2) as apred)::preds -> if (List.mem (ALessEq (p1,p2)) preds) then [AFalse] else apred::(List.filter (fun x -> x <> apred) (full_arith_simplification_aux preds))
+  | (AGreatEq (p1,p2) as apred)::preds -> if (List.mem (ALess (p1,p2)) preds) then [AFalse] else apred::(List.filter (fun x -> x <> apred) (full_arith_simplification_aux preds))
+  | apred::preds -> apred::(List.filter (fun x -> x <> apred) (full_arith_simplification_aux preds))
+
+let full_arith_simplification apred = match apred with
+  | AAnd preds -> simplify_arith_pred (AAnd (full_arith_simplification_aux preds))
+  | _ -> apred   
+  

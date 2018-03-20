@@ -279,3 +279,6 @@ let string_of_eval_context ctx = string_of_exprML ctx
 
 type symbheap =  (id,exprML) pmap 
   
+let string_of_symb_heap = function
+  | [] -> "ε"
+  | heap -> "[" ^ (string_of_pmap "↪" string_of_exprML heap) ^ "]"  

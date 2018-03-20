@@ -30,7 +30,7 @@ let get_skor_from_tag (ty,funct_var_ctx,fexpr1,fexpr2) = function
   | WB -> RelV (ty,funct_var_ctx,fexpr1,fexpr2)
   | Extern -> RelSE (ty,funct_var_ctx,fexpr1,fexpr2)
   | Intern -> RelSI (ty,funct_var_ctx,fexpr1,fexpr2)
-  | Wrong -> failwith "Wrong impossible here"
+  | Wrong -> RelE (ty,funct_var_ctx,fexpr1,fexpr2)
     
 let get_elem_callexts funct_var_ctx (expr1,gamma1) (expr2,gamma2) =
   match (kind_of_term funct_var_ctx (expr1,gamma1), kind_of_term funct_var_ctx (expr2,gamma2)) with
@@ -159,9 +159,8 @@ let select_if_backtrack_pair f sequent1 sequent2 =
     
                        
 let rec build_tc_rule flag hist sequent = 
-  match (trivially_false sequent.arith_ctx, sequent.formula) with
-  | (true,_) -> Continue (Stop sequent)
-  | (_,RelV (TArrow (ty1,ty2), funct_var_ctx, (expr1,gamma1), (expr2,gamma2))) ->  
+  match sequent.formula with
+  | RelV (TArrow (ty1,ty2), funct_var_ctx, (expr1,gamma1), (expr2,gamma2)) ->  
           let result = symb_val ty1 in 
           let f = fun (sval,funct_var_ctx',ground_var_ctx') ->  
                       new_sequent sequent ground_var_ctx' (RelE (ty2, (funct_var_ctx @ funct_var_ctx'), (App (expr1,sval),gamma1),(App (expr2,sval),gamma2))) in
@@ -171,7 +170,7 @@ let rec build_tc_rule flag hist sequent =
             | LContinue ltc_struct -> Continue (RuleV (ltc_struct,sequent))
           end  
           
-  | (_,RelV (TProd (ty1,ty2), funct_var_ctx, (Pair (v11, v12), gamma1), (Pair (v21, v22), gamma2))) ->
+  | RelV (TProd (ty1,ty2), funct_var_ctx, (Pair (v11, v12), gamma1), (Pair (v21, v22), gamma2)) ->
           let skor1 = RelV (ty1,funct_var_ctx,(v11,gamma1),(v21,gamma2)) in
           let skor2 = RelV (ty2,funct_var_ctx,(v12,gamma1),(v22,gamma2)) in
           let premises = select_if_backtrack_pair (build_tc_rule false hist) (new_sequent sequent [] skor1) (new_sequent sequent [] skor2) in
@@ -180,9 +179,9 @@ let rec build_tc_rule flag hist sequent =
             | PContinue (tc1,tc2) -> Continue (RuleVProd ((tc1,tc2), sequent))
           end
           
-  | (_,RelV (_, _, _, _)) -> Continue (RuleVG sequent)
+  | RelV (_, _, _, _) -> Continue (RuleVG sequent)
   
-  | (_,RelSE (ty, funct_var_ctx, fexpr1, fexpr2)) -> 
+  | RelSE (ty, funct_var_ctx, fexpr1, fexpr2) -> 
        begin match (get_elem_callexts funct_var_ctx fexpr1 fexpr2) with
             | Some (TArrow (ty1,ty2),fk1,fv1,fk2,fv2) -> 
                 let skorv = RelV (ty1,funct_var_ctx,fv1,fv2) in
@@ -196,7 +195,7 @@ let rec build_tc_rule flag hist sequent =
             | _ -> failwith "Error, trying to prove RelSE on a non-functional type"
         end
         
-  | (_,RelK (ty1, ty2, funct_var_ctx, (ctx1,gamma1), (ctx2,gamma2))) -> 
+  | RelK (ty1, ty2, funct_var_ctx, (ctx1,gamma1), (ctx2,gamma2)) -> 
           let result = symb_val ty1 in 
           let f = fun (sval,funct_var_ctx',ground_var_ctx') ->  
                        new_sequent sequent ground_var_ctx' 
@@ -207,7 +206,7 @@ let rec build_tc_rule flag hist sequent =
             | LContinue ltc_struct -> Continue (RuleK (ltc_struct,sequent))
           end  
           
-  | (_,RelSI (ty, funct_var_ctx, (expr1,gamma1), (expr2,gamma2))) ->  
+  | RelSI (ty, funct_var_ctx, (expr1,gamma1), (expr2,gamma2)) ->  
      begin match (kind_of_term funct_var_ctx (expr1,gamma1),kind_of_term funct_var_ctx (expr2,gamma2),sequent.j,sequent.k,flag) with
        | (IsRecCall _, _,0,_,_) -> 
             Debug.print_debug ("LOut reached: " ^ (string_of_formula sequent.formula));
@@ -276,23 +275,24 @@ let rec build_tc_rule flag hist sequent =
              | Continue tc_struct ->  Continue (RUnfold (tc_struct,sequent))
              | Backtrack _ -> premise               
            end
-       | (_,_,_,_,_) -> failwith "RelSI is applied on terms which are not recursive calls"   
+       | (_,_,_,_,_) -> failwith "Error: RelSI is applied on terms which are not recursive calls. Please report."   
      end
-  | (_,RelE (ty, funct_var_ctx, fexpr1, fexpr2)) ->       
+  | RelE (ty, funct_var_ctx, fexpr1, fexpr2) ->       
          let result1 = Symb_red.symbred_trans fexpr1 [] [] [] [] in
          let result2 = Symb_red.symbred_trans fexpr2 [] [] [] [] in
          let build_tc_rule_expr (fexpr1,fexpr2,heapPre1,heapPre2,heapPost1,heapPost2,vars,preds) =
            let tag = select_tag funct_var_ctx fexpr1 fexpr2 in
+           let skor' = get_skor_from_tag (ty,funct_var_ctx,fexpr1,fexpr2) tag in
+           let sequent' = new_sequent sequent vars ~arith_ctx:preds skor' in
            begin match tag with
-             | Wrong -> Continue ((Wrong,heapPre1,heapPre2,heapPost1,heapPost2),Stop (new_sequent sequent vars ~arith_ctx:preds sequent.formula)) 
+             | Wrong -> Continue ((tag,heapPre1,heapPre2,heapPost1,heapPost2),Stop sequent') 
              | _ ->
-               let skor' = get_skor_from_tag (ty,funct_var_ctx,fexpr1,fexpr2) tag in
-               let premise = build_tc_rule false hist (new_sequent sequent vars ~arith_ctx:preds skor')
-               in commute_result (tag,heapPre1,heapPre2,heapPost1,heapPost2) premise    
+               let premise = build_tc_rule false hist sequent' in 
+               commute_result (tag,heapPre1,heapPre2,heapPost1,heapPost2) premise    
            end in 
            let g = fun ((fexpr1,heapPre1,heapPost1,vars1,preds1),(fexpr2,heapPre2,heapPost2,vars2,preds2)) 
                     -> (fexpr1,fexpr2,heapPre1,heapPre2,heapPost1,heapPost2,(vars1@vars2),(preds1@preds2)) in
-           let premises = select_if_backtrack_list build_tc_rule_expr (mix_lists g result1 result2) in
+           let premises = select_if_backtrack_list build_tc_rule_expr  (mix_lists g result1 result2) in
            begin match premises with
             | LBacktrack sequent -> Backtrack sequent
             | LContinue ltc_struct -> Continue (RuleE (ltc_struct,sequent))
@@ -308,12 +308,12 @@ let extract_pred_from_vg sequent =
         | RelV (TUnit,_,_,_)  -> ATrue      
         | RelV (TBool,_,(Bool b1,_), (Bool b2,_)) when b1 = b2 -> ATrue
         | RelV (TBool,_,(Bool _,_), (Bool _,_)) -> AFalse
-        | RelV (TInt,_,(v1,_), (v2,_)) -> (AEqual (AExpr v1,AExpr v2))
+        | RelV (TInt,_,(v1,_), (v2,_)) -> AEqual (v1,v2)
         | _ -> failwith "Error: The rule VG has been used on a non-ground type."  
         
-let build_tc ty expr1 expr2 step1 step2 = 
- match build_tc_rule false [] (emptyctx_sequent (RelE (ty,[],(expr1,[]),(expr2,[]))) step1 step2) with
-   | Continue tc -> tc
-   | Backtrack (_,bt_sequent,gen_sequent) -> failwith ("Uncaught backtracking " ^ (string_of_int bt_sequent.id) ^ " and " ^ (string_of_int gen_sequent.id))
+let build_tc ty expr1 expr2 step1 step2 =
+  match build_tc_rule false [] (emptyctx_sequent (RelE (ty,[],(expr1,[]),(expr2,[]))) step1 step2) with
+    | Continue tc -> tc
+    | Backtrack (_,bt_sequent,gen_sequent) -> failwith ("Uncaught backtracking " ^ (string_of_int bt_sequent.id) ^ " and " ^ (string_of_int gen_sequent.id))
         
         

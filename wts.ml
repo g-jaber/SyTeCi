@@ -1,3 +1,4 @@
+open Pmap
 open Tcstruct
 open Logic
 open Syntax
@@ -31,7 +32,13 @@ let string_of_label (heapPre1,heapPre2,heapPost1,heapPost2,preds,polarity) =
      | _ -> string_heaps ^ "," ^ string_preds ^ "," ^ string_polarity
 
 (*let simplify_label (heapPre1,heapPre2,heapPost1,heapPost2,pred) = (heapPre1,heapPre2,heapPost1,heapPost2,simplify_arith_pred pred) *)
-      
+
+type invariant = (symbheap*symbheap*arith_pred)
+
+let string_of_invariant (heap1,heap2,preds) =
+   let string_heaps = (string_of_symb_heap heap1) ^ "," ^ (string_of_symb_heap heap1) in
+   let string_preds = string_of_arith_pred preds in string_heaps ^ "," ^ string_preds
+
 type state = int
 
 module States = Set.Make( 
@@ -61,13 +68,15 @@ let string_of_state = string_of_int
 type sr = { 
     mutable states : States.t;
     mutable init_state : state;
-    mutable incons_states : States.t;    
+    mutable incons_states : States.t;
+    mutable var_map : (state,var_ctx) pmap;
     mutable pintern_transitions : (state*state*label) list;
     mutable extern_transitions : (state*state) list;
     mutable wb_transitions : (state*state) list;        
     mutable peps_transitions : (state*state*gsubst) list;
     mutable o_transitions : (state*state*polarity) list;     
-    mutable oeps_transitions : (state*state) list;    
+    mutable oeps_transitions : (state*state) list;
+    mutable invariants : invariant list;
   }
 
 type esr = sr*States.t*States.t*States.t*arith_pred list 
@@ -121,16 +130,17 @@ let list_swap old_state new_state states =
   
 let singleton_sr () = 
   let state = fresh_state () in
-(*  print_endline ("Adding new state " ^(string_of_state state));*)
   { states = States.singleton state; 
     init_state = state;
     incons_states = States.empty;
+    var_map = [];
     pintern_transitions = []; 
     extern_transitions = [];
     wb_transitions = [];
     peps_transitions = [];     
     o_transitions = [];
-    oeps_transitions = [] 
+    oeps_transitions = [];
+    invariants = [];
  }
 
 let substitute_state_atom_trans old_state new_state (s1,s2) = 
@@ -155,12 +165,15 @@ let substitute_state_esr state (sr,isExt,isWB,preds,p_back_trans) =
        { states = States.add state (States.remove old_init sr.states); 
          init_state = state;
          incons_states = set_swap old_init state sr.incons_states;
+         var_map = List.map (fun (s,f) -> ((if s = old_init then state else s),f)) sr.var_map;
          pintern_transitions = List.map (substitute_state_complex_trans old_init state) sr.pintern_transitions;
          extern_transitions = List.map (substitute_state_atom_trans old_init state) sr.extern_transitions;
          wb_transitions = List.map (substitute_state_atom_trans old_init state) sr.wb_transitions;         
          peps_transitions = List.map (substitute_state_complex_trans old_init state) sr.peps_transitions;
          o_transitions = List.map (substitute_state_complex_trans old_init state) sr.o_transitions;          
-         oeps_transitions = List.map (substitute_state_atom_trans old_init state) sr.oeps_transitions }
+         oeps_transitions = List.map (substitute_state_atom_trans old_init state) sr.oeps_transitions;
+         invariants = sr.invariants
+       }
   in free_state old_init;
      (sr',isExt',isWB',preds,p_back_trans')       
 
@@ -168,13 +181,16 @@ let basic_union init_state (sr1,isExt1,isWB1,preds1,p_back_trans1) (sr2,isExt2,i
   let sr = 
     { states = States.union sr1.states sr2.states; 
       init_state = init_state;
-      incons_states = States.union  sr1.incons_states sr2.incons_states;       
+      incons_states = States.union sr1.incons_states sr2.incons_states;
+      var_map = sr1.var_map@sr2.var_map;
       pintern_transitions = sr1.pintern_transitions@sr2.pintern_transitions;
       extern_transitions = sr1.extern_transitions@sr2.extern_transitions;
       wb_transitions = sr1.wb_transitions@sr2.wb_transitions;
       peps_transitions = sr1.peps_transitions@sr2.peps_transitions;
       o_transitions = sr1.o_transitions@sr2.o_transitions;
-      oeps_transitions = sr1.oeps_transitions@sr2.oeps_transitions} in
+      oeps_transitions = sr1.oeps_transitions@sr2.oeps_transitions;
+      invariants = sr1.invariants@sr2.invariants 
+    } in
   (sr,States.union isExt1 isExt2,States.union isWB1 isWB2,preds1@preds2,p_back_trans1@p_back_trans2)      
   
 let union ((sr1,isExt1,isWB1,preds1,p_back_trans1) as esr1) ((sr2,isExt2,isWB2,preds2,p_back_trans2) as esr2) =
@@ -223,7 +239,10 @@ let build_pintern_trans_incons sequent s ((_,_,_,preds,_),(tag,hpre1,hpre2,hpost
   let full_preds = full_arith_simplification (simplify_arith_pred (simplify_arith_pred (simplify_arith_pred (AAnd (neg_preds::preds'))))) in
   match full_preds with
    | AFalse -> []
-   | _ -> let s' = fresh_state() in [((s,s',(hpre1,hpre2,hpost1,hpost2,full_preds,polarity)),s')]  
+   | _ -> 
+     let s' = fresh_state() in 
+     Debug.print_debug ("Possible invariant: " ^ (string_of_label (hpre1,hpre2,hpost1,hpost2,full_preds,polarity)));
+     [((s,s',(hpre1,hpre2,hpost1,hpost2,full_preds,polarity)),(s',(hpre1,hpre2,full_preds)))]  
         
 let build_esr_ruleP sequent esrs_a = match esrs_a with
   | [] -> failwith "Error trying to build the WTS: the rule E does not contain any premise"
@@ -232,34 +251,38 @@ let build_esr_ruleP sequent esrs_a = match esrs_a with
       let isExt_a = List.filter (fun (_,(tag,_,_,_,_),_) -> tag = Extern) esrs_a in
       let isExt' = States.of_list (List.map (fun ((sr',_,_,_,_),_,_) -> sr'.init_state) isExt_a) in
       let isWB_a = List.filter (fun (_,(tag,_,_,_,_),_) -> tag = WB) esrs_a in
-      let isWB' = States.of_list (List.map (fun ((sr',_,_,_,_),_,_) -> sr'.init_state) isWB_a) in          
-(*      let new_incons_states = List.map (fun _ -> fresh_state ()) esrs_a in*)
-      let (sr,isExt,isWB,_,p_back_trans) = List.fold_left (fun esr1 (esr2,_,_) -> basic_union new_init_state esr1 esr2) esr esrs_a' in      
+      let isWB' = States.of_list (List.map (fun ((sr',_,_,_,_),_,_) -> sr'.init_state) isWB_a) in
+      let (sr,isExt,isWB,_,p_back_trans) = List.fold_left (fun esr1 (esr2,_,_) -> basic_union new_init_state esr1 esr2) esr esrs_a' in
       let pintern_transitions = List.flatten (List.map (build_pintern_trans sequent new_init_state) esrs_a) in
-      let (pintern_transitions_incons,new_incons_states) = List.split (List.flatten (List.map (build_pintern_trans_incons sequent new_init_state) esrs_a)) in
-      sr.states <- States.add new_init_state sr.states;  
+      let (pintern_transitions_incons,result) = List.split (List.flatten (List.map (build_pintern_trans_incons sequent new_init_state) esrs_a)) in
+      let (new_incons_states,new_invariants) = List.split result in
+      sr.states <- States.add new_init_state sr.states;
       List.iter (fun s -> sr.states <- States.add s sr.states) new_incons_states;
       List.iter (fun s -> sr.incons_states <- States.add s sr.incons_states) new_incons_states;      
       sr.init_state <- new_init_state;
-      sr.pintern_transitions <- pintern_transitions@pintern_transitions_incons@sr.pintern_transitions;  
+      sr.pintern_transitions <- pintern_transitions@pintern_transitions_incons@sr.pintern_transitions;
+      sr.invariants <- new_invariants@sr.invariants;
       (sr,States.union isExt' isExt,States.union isWB' isWB,[],p_back_trans)        
     
-let rec build_esr = function
+let rec build_esr bc = function
   | RuleVG sequent -> let sr = singleton_sr () in (sr,States.empty,States.empty,[extract_pred_from_vg sequent],[])
   | Stop _ | ROut _   -> let sr = singleton_sr () in  (sr,States.empty,States.empty,[AFalse],[])
-  | LOut _   -> let sr = singleton_sr () in  (sr,States.empty,States.empty,[ATrue],[])     
+  | LOut _   -> 
+    let sr = singleton_sr () in
+    let preds = if bc then [ATrue] else [AFalse] in
+    (sr,States.empty,States.empty,preds,[])     
   | RuleVProd ((tc1,tc2),_) | RuleSext ((tc1,tc2),_) ->
-      let esr1 = build_esr tc1 in
-      let esr2 = build_esr tc2 in      
+      let esr1 = build_esr bc tc1 in
+      let esr2 = build_esr bc tc2 in      
       union esr1 esr2
-  | Unfold (tc,_) | LUnfold (tc,_) | RUnfold (tc,_)  | Rewrite (tc,_) -> build_esr tc    
-  | RuleV (tcs,_) -> let esrs = List.map build_esr tcs in build_esr_ruleO OQ esrs
-  | RuleK (tcs,_) -> let esrs = List.map build_esr tcs in build_esr_ruleO OA esrs
+  | Unfold (tc,_) | LUnfold (tc,_) | RUnfold (tc,_)  | Rewrite (tc,_) -> build_esr bc tc    
+  | RuleV (tcs,_) -> let esrs = List.map (build_esr bc) tcs in build_esr_ruleO OQ esrs
+  | RuleK (tcs,_) -> let esrs = List.map (build_esr bc) tcs in build_esr_ruleO OA esrs
   | RuleE (tcs_a,sequent) -> 
-      let esrs_a = List.map (fun (annotation,tc) -> (build_esr tc,annotation,get_root tc)) tcs_a in
+      let esrs_a = List.map (fun (annotation,tc) -> (build_esr bc tc,annotation,get_root tc)) tcs_a in
       build_esr_ruleP sequent esrs_a
   | Gen (gsubst,tc,_) ->
-      let (sr,isExt,isWB,preds,p_back_trans) = build_esr tc in
+      let (sr,isExt,isWB,preds,p_back_trans) = build_esr bc tc in
       let new_init_state = fresh_state () in
       sr.peps_transitions <- (new_init_state,sr.init_state,gsubst)::sr.peps_transitions;
       sr.init_state <- new_init_state;
@@ -274,8 +297,8 @@ let rec build_esr = function
       (sr,States.empty,States.empty,[],[(sr.init_state,back_sequent.id,gsubst)])   
 
   
-let build_sr tc =
-  match  build_esr tc with
+let build_sr bc tc =
+  match  build_esr bc tc with
     | (sr,_,_,_,[]) -> sr
     | (_,_,_,_,_) -> failwith ("Error, the generation of back-transition is not finished. "); 
 (*    List.iter (fun (s,id,_) -> print_endline ("(" ^ (string_of_state s) ^ "," ^ (string_of_int id) ^ ") "))*)

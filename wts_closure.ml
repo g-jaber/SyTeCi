@@ -77,6 +77,20 @@ let transitive_closure matrix = (* The transitive closure is implemented via a s
 let get_isRuleV sr = List.map (fun (s,_,_) -> s) (List.filter (fun (_,_,polarity) -> polarity = OQ) sr.o_transitions)
 let get_isRuleK sr = List.map (fun (s,_,_) -> s) (List.filter (fun (_,_,polarity) -> polarity = OA) sr.o_transitions)
 
+(*let prune_noentry_states =
+  let is_reach = ref false in
+  let result = ref [] in
+  let n = Array.length matrix in
+  for i = 0 to n-1 do
+    is_reach := false;
+    for j = 0 to n-1 do
+     is_reach := !is_reach || matrix.(j).(i)
+    done;
+    if (!is_reach) then () else result := i::!result 
+  done;
+  !result*)
+  
+
 let sr_closure_aux sr =
   let (matrix_extern,matrix_oeps,matrix_wb) = adjacency_matrix sr in
   let matrix_refl_oeps = reflexive_closure matrix_oeps in

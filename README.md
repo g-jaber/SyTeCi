@@ -8,13 +8,16 @@ One can then check that no failed states are reachable to prove that M1,M2 are c
 
 This requires menhir. Then, a simple invocation of `make` should create the binary syteci.
 
-## Use
+## Basic Use
 
 To use SyTeCi, you first have to put the programs you want to compare in two different files "file1" and "file2".
 Then, you have to invoke the following command:
-`syteci file1 file2 j k`
-where j k are the step-indexes used to build the inference graph S. if they are not provided, their value is taken to be 0.
+`syteci file1 file2`
 
 So for example, you can use
-`./syteci testsuite/wbsc/prog1.ml testsuite/wbsc/prog2.ml 0 0`
-to test SyTeCi on the "Well-Bracketed State Change" example
+`./syteci testsuite/wbsc/prog1.ml testsuite/wbsc/prog2.ml`
+to test SyTeCi on the "Well-Bracketed State Change" example.
+This will generate the Symbolic Transition System in dot format.
+
+Many other options are available, to discover them you can use
+`./syteci -help`

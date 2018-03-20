@@ -45,9 +45,9 @@ let is_ground_term_with_hole vars expr =
   in b1 && b2
 
 let rec abstr_fo expr = match expr with
-  | Mult (Var x1, Int n) -> let newvar = Var (fresh_lvar ()) in (newvar,[AEqual (AExpr newvar, AExpr(Mult (Var x1,Int n)))])
-  | Mult (Var x1, Var x2) -> let newvar = Var (fresh_lvar ()) in (newvar,[AEqual (AExpr newvar, AExpr(Mult (Var x1,Var x2)))])
-  | Mult (Var x1, Mult (Var x2, (App (_,_) as expr'))) -> let newvar = Var (fresh_lvar ()) in (Mult (newvar,expr'),[AEqual (AExpr newvar, AExpr(Mult (Var x1,Var x2)))])
+  | Mult (Var x1, Int n) -> let newvar = Var (fresh_lvar ()) in (newvar,[AEqual (newvar, Mult (Var x1,Int n))])
+  | Mult (Var x1, Var x2) -> let newvar = Var (fresh_lvar ()) in (newvar,[AEqual (newvar, Mult (Var x1,Var x2))])
+  | Mult (Var x1, Mult (Var x2, (App (_,_) as expr'))) -> let newvar = Var (fresh_lvar ()) in (Mult (newvar,expr'),[AEqual (newvar, Mult (Var x1,Var x2))])
   | App (expr1, expr2) -> let (expr2',preds) = abstr_fo expr2 in (App (expr1,expr2'),preds)
   | _ -> (expr,[])  
 

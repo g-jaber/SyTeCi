@@ -227,18 +227,18 @@ let build_esr_ruleO polarity = function
 let build_pintern_trans sequent s ((sr,_,_,preds,_),(tag,hpre1,hpre2,hpost1,hpost2),sequent') =
   let (preds',_) = newelem_of_sequents sequent sequent' in
   let polarity = polarity_from_tag tag in
-  let full_preds = full_arith_simplification (simplify_arith_pred (AAnd (preds@preds'))) in
-  match full_preds with
-    | AFalse -> []
+  let full_preds = (*full_arith_simplification*) (simplify_arith_pred (AAnd (preds@preds'))) in
+  match Logic_to_smt.check_sat sequent'.ground_var_ctx [full_preds] with
+    | false -> []
     | _ -> [(s,sr.init_state,(hpre1,hpre2,hpost1,hpost2,full_preds,polarity))]
 
 let build_pintern_trans_incons sequent s ((_,_,_,preds,_),(tag,hpre1,hpre2,hpost1,hpost2),sequent') =
   let (preds',_) = newelem_of_sequents sequent sequent' in
   let polarity = polarity_from_tag tag in
   let neg_preds = negate_arith_pred (AAnd preds) in
-  let full_preds = full_arith_simplification (simplify_arith_pred (simplify_arith_pred (simplify_arith_pred (AAnd (neg_preds::preds'))))) in
-  match full_preds with
-   | AFalse -> []
+  let full_preds = (*full_arith_simplification*) (simplify_arith_pred (simplify_arith_pred (simplify_arith_pred (AAnd (neg_preds::preds'))))) in
+  match Logic_to_smt.check_sat sequent'.ground_var_ctx [full_preds] with
+   | false -> []
    | _ -> 
      let s' = fresh_state() in 
      Debug.print_debug ("Possible invariant: " ^ (string_of_label (hpre1,hpre2,hpost1,hpost2,full_preds,polarity)));

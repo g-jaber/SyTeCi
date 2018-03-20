@@ -290,17 +290,10 @@ let rec build_tc_rule asym_unfold flag hist sequent =
            let tag = select_tag funct_var_ctx fexpr1 fexpr2 in
            let skor' = get_skor_from_tag (ty,funct_var_ctx,fexpr1,fexpr2) tag in
            let sequent' = new_sequent sequent vars ~arith_ctx:preds skor' in
-<<<<<<< HEAD
-           begin match tag with
-             | Wrong -> Continue ((tag,heapPre1,heapPre2,heapPost1,heapPost2),Stop sequent') 
-             | _ ->
-               let premise = build_tc_rule asym_unfold false hist sequent' in 
-=======
            begin match (tag,Logic_to_smt.check_sat (vars@sequent.ground_var_ctx)  (preds@sequent.arith_ctx)) with
              | (Wrong,_) | (_,false) -> Continue ((tag,heapPre1,heapPre2,heapPost1,heapPost2),Stop sequent') 
              | (_,_) ->
-               let premise = build_tc_rule false hist sequent' in 
->>>>>>> Add basic support for Z3 smt solver
+               let premise = build_tc_rule false hist sequent' in
                commute_result (tag,heapPre1,heapPre2,heapPost1,heapPost2) premise    
            end in 
            let g = fun ((fexpr1,heapPre1,heapPost1,vars1,preds1),(fexpr2,heapPre2,heapPost2,vars2,preds2)) 

@@ -237,6 +237,7 @@ let add_incons_trans (hpre1,hpre2,hpost1,hpost2,full_neg_preds,polarity) ((sr,_,
 let build_pintern_trans sequent ((sr1,_,_,_,_) as esr1) ((sr2,_,_,preds,_) as esr2,(tag,hpre1,hpre2,hpost1,hpost2),sequent') =
   let (preds',_) = newelem_of_sequents sequent sequent' in
   let polarity = polarity_from_tag tag in
+<<<<<<< HEAD
   let full_preds = full_arith_simplification (simplify_arith_pred (AAnd (preds@preds'))) in
   let neg_preds = negate_arith_pred (AAnd preds) in
   let full_neg_preds = full_arith_simplification (simplify_arith_pred (simplify_arith_pred (simplify_arith_pred (AAnd (neg_preds::preds'))))) in  
@@ -257,6 +258,45 @@ let build_esr_ruleP sequent esrs_a =
   let esr = (sr,States.empty,States.empty,[],[]) in
   List.fold_left (build_pintern_trans sequent) esr esrs_a
   
+=======
+  let full_preds = (*full_arith_simplification*) (simplify_arith_pred (AAnd (preds@preds'))) in
+  match Logic_to_smt.check_sat sequent'.ground_var_ctx [full_preds] with
+    | false -> []
+    | _ -> [(s,sr.init_state,(hpre1,hpre2,hpost1,hpost2,full_preds,polarity))]
+
+let build_pintern_trans_incons sequent s ((_,_,_,preds,_),(tag,hpre1,hpre2,hpost1,hpost2),sequent') =
+  let (preds',_) = newelem_of_sequents sequent sequent' in
+  let polarity = polarity_from_tag tag in
+  let neg_preds = negate_arith_pred (AAnd preds) in
+  let full_preds = (*full_arith_simplification*) (simplify_arith_pred (simplify_arith_pred (simplify_arith_pred (AAnd (neg_preds::preds'))))) in
+  match Logic_to_smt.check_sat sequent'.ground_var_ctx [full_preds] with
+   | false -> []
+   | _ -> 
+     let s' = fresh_state() in 
+     Debug.print_debug ("Possible invariant: " ^ (string_of_label (hpre1,hpre2,hpost1,hpost2,full_preds,polarity)));
+     [((s,s',(hpre1,hpre2,hpost1,hpost2,full_preds,polarity)),(s',(hpre1,hpre2,full_preds)))]  
+        
+let build_esr_ruleP sequent esrs_a = match esrs_a with
+  | [] -> failwith "Error trying to build the WTS: the rule E does not contain any premise"
+  | ((esr,_,_)::esrs_a') ->
+      let new_init_state = fresh_state () in
+      let isExt_a = List.filter (fun (_,(tag,_,_,_,_),_) -> tag = Extern) esrs_a in
+      let isExt' = States.of_list (List.map (fun ((sr',_,_,_,_),_,_) -> sr'.init_state) isExt_a) in
+      let isWB_a = List.filter (fun (_,(tag,_,_,_,_),_) -> tag = WB) esrs_a in
+      let isWB' = States.of_list (List.map (fun ((sr',_,_,_,_),_,_) -> sr'.init_state) isWB_a) in
+      let (sr,isExt,isWB,_,p_back_trans) = List.fold_left (fun esr1 (esr2,_,_) -> basic_union new_init_state esr1 esr2) esr esrs_a' in
+      let pintern_transitions = List.flatten (List.map (build_pintern_trans sequent new_init_state) esrs_a) in
+      let (pintern_transitions_incons,result) = List.split (List.flatten (List.map (build_pintern_trans_incons sequent new_init_state) esrs_a)) in
+      let (new_incons_states,new_invariants) = List.split result in
+      sr.states <- States.add new_init_state sr.states;
+      List.iter (fun s -> sr.states <- States.add s sr.states) new_incons_states;
+      List.iter (fun s -> sr.incons_states <- States.add s sr.incons_states) new_incons_states;      
+      sr.init_state <- new_init_state;
+      sr.pintern_transitions <- pintern_transitions@pintern_transitions_incons@sr.pintern_transitions;
+      sr.invariants <- new_invariants@sr.invariants;
+      (sr,States.union isExt' isExt,States.union isWB' isWB,[],p_back_trans)        
+    
+>>>>>>> Add basic support for Z3 smt solver
 let rec build_esr bc = function
   | RuleVG sequent -> let sr = singleton_sr () in (sr,States.empty,States.empty,[extract_pred_from_vg sequent],[])
   | Stop _ | ROut _   -> let sr = singleton_sr () in  (sr,States.empty,States.empty,[AFalse],[])

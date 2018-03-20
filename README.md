@@ -7,6 +7,7 @@ One can then check that no failed states are reachable to prove that M1,M2 are c
 ## Compilation
 
 This requires menhir. Then, a simple invocation of `make` should create the binary syteci.
+The branch `withZ3` also depends on the SMT solver z3 with its OCaml bindings, that can be installed using `opam install z3`
 
 ## Basic Use
 

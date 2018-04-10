@@ -42,7 +42,7 @@ let check_sat var_ctx arith_ctx =
   let constraints = List.map (arith_pred_to_z3_term ctx symbenv) arith_ctx in
   add solver constraints;
   let result = check solver [] in
-  Debug.print_debug ("Checking " ^  (Z3.Solver.to_string solver) ^ " : " ^ (string_of_status result));
+(*  Debug.print_debug ("Checking " ^  (Z3.Solver.to_string solver) ^ " : " ^ (string_of_status result));*)
   match result with
    | SATISFIABLE -> true 
    | UNKNOWN -> true

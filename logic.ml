@@ -29,6 +29,20 @@ type arith_pred =
   | AGreat of Syntax.exprML * Syntax.exprML
   | AGreatEq of Syntax.exprML * Syntax.exprML
 
+let get_consfun_from_binpred = function
+  | AEqual _ -> fun (x,y) -> AEqual (x,y)
+  | ANEqual _ -> fun (x,y) -> ANEqual (x,y)
+  | ALess _ -> fun (x,y) -> ALess (x,y)
+  | ALessEq _ -> fun (x,y) -> ALessEq (x,y)
+  | AGreat _ -> fun (x,y) -> AGreat (x,y)
+  | AGreatEq _ -> fun (x,y) -> AGreatEq (x,y)
+  | _ -> failwith ("No binary constructor function can be extracted. Please report.")
+
+let get_consfun_from_polyadpred = function
+  | AAnd _ -> fun preds -> AAnd preds
+  | AOr _ -> fun preds -> AOr preds
+  | _ -> failwith ("No polyadic constructor function can be extracted. Please report.")  
+  
 let rec negate_arith_pred = function
   | ATrue -> AFalse
   | AFalse -> ATrue
@@ -112,3 +126,53 @@ let full_arith_simplification apred = match apred with
   | AAnd preds -> simplify_arith_pred (AAnd (full_arith_simplification_aux preds))
   | _ -> apred   
   
+(* Refreshing functions *)
+
+let rec freshen_expr env e = match e with
+  | Var x -> 
+    begin match Pmap.lookup_pmap x env with
+      | Some y -> (Var y,env)  (* We may have to use another sort for Locations *)
+      | None -> let y = fresh_lvar () in
+                (Var y,(x,y)::env)
+    end  
+  | Int _ | Bool _ -> (e,env)
+  | Plus (e1,e2) | Minus (e1,e2) | Mult (e1,e2) | Div (e1,e2) -> 
+    let f = Syntax.get_consfun_from_binexpr e in
+    let (e1',env') = freshen_expr env e1 in 
+    let (e2',env'') = freshen_expr env' e2 in
+    (f (e1',e2'),env'')
+  | _ -> failwith ("Error: trying to refresh " ^ (string_of_exprML e) ^ " which is not a ground term. Please report.")      
+
+  
+let rec freshen_pred env p = match p with
+  | ATrue | AFalse -> (p,env)
+  | AAnd preds | AOr preds -> 
+    let f = get_consfun_from_polyadpred p in
+    let (preds',env') = freshen_pred_list env preds in
+    (f preds',env')
+  | AEqual (e1,e2) | ANEqual (e1,e2) | ALess (e1,e2) | ALessEq (e1,e2) | AGreat (e1,e2) | AGreatEq (e1,e2) ->
+    let f = get_consfun_from_binpred p in
+    let (e1',env') = freshen_expr env e1 in 
+    let (e2',env'') = freshen_expr env' e2 in
+    (f (e1',e2'),env'')    
+  
+and freshen_pred_list env = function
+  | [] -> ([],env)
+  | p::preds -> let (p',env') = freshen_pred env p in
+                let (preds',env'') = freshen_pred_list env' preds in
+                (p'::preds',env'')
+                
+let rec freshen_symb_heap env h = match h with
+  | [] -> ([],env)
+  | (x,e)::h' ->
+    let (e',env') = freshen_expr env e in
+    let (h'',env'') = freshen_symb_heap env' h' in
+    ((x,e')::h'',env'')
+    
+let freshen_inv (h1,h2,preds1,preds2) =
+  let (h1',env) = freshen_symb_heap [] h1 in
+  let (h2',env') = freshen_symb_heap env h2 in
+  let (preds1',env'') = freshen_pred env' preds1 in
+  let (preds2',env''') = freshen_pred env'' preds2 in
+  let var_ctx = List.map (fun (_,x) -> (x,TInt)) env''' in
+  (h1',h2',preds1',preds2',var_ctx)

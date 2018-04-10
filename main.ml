@@ -24,6 +24,7 @@ let () =
         let compute_char_form = ref false in
         let compute_sts = ref true in
         let print_dg = ref false in
+        let pred_abstr = ref false in
         let speclist = 
           [("-cf",Set compute_char_form,"Compute the temporal characteristic formula");
            ("-dg",Set print_dg,"Print the computed derivation graph");
@@ -31,7 +32,8 @@ let () =
            ("-j n",Set_int si_j,"Fixe the left step-index to n in order to control unfolding of recursive calls");
            ("-k n",Set_int si_k,"Fixe the right step-index to n in order to control unfolding of recursive calls");
            ("-bc",Set bounded_checking, "Enable bounded checking");
-           ("-nosts",Clear compute_sts, "Do not compute the STS")
+           ("-nosts",Clear compute_sts, "Do not compute the STS");
+           ("-pa",Set pred_abstr,"Perform predicate abstraction analysis")
           ] in
         let usage_msg = "Usage: ./syteci filename1 filename2 [options] where the options are:" in          
         let get_filename str =
@@ -60,5 +62,9 @@ let () =
         if !compute_sts then begin
           let sr = Wts.build_sr !bounded_checking tc in     
           let sr' = Wts_closure.sr_closure sr in
-          Wts_to_dot.dot_from_sr sr'
-        end  
+          Wts_to_dot.dot_from_sr sr';
+          if !pred_abstr then begin
+            print_endline("Predicate Abstraction:");
+            Pred_abstr.get_invariant_from_wts sr'
+          end
+        end

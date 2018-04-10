@@ -15,7 +15,7 @@ let string_of_polarity = function
   | OA -> "OA"
 
 
-type label = (symbheap*symbheap*symbheap*symbheap*Logic.arith_pred*polarity)
+type label = (symbheap*symbheap*symbheap*symbheap*Logic.arith_pred*Syntax.var_ctx*polarity)
 
 let polarity_from_tag = function
   | Intern -> PI
@@ -23,7 +23,7 @@ let polarity_from_tag = function
   | WB -> PA
   | Wrong -> PI
 
-let string_of_label (heapPre1,heapPre2,heapPost1,heapPost2,preds,polarity) =
+let string_of_label (heapPre1,heapPre2,heapPost1,heapPost2,preds,_,polarity) =
    let string_heaps = (string_of_symb_heap heapPre1) ^ "↝" ^ (string_of_symb_heap heapPost1) ^ "," ^ (string_of_symb_heap heapPre2) ^ "↝" ^ (string_of_symb_heap heapPost2) in
    let string_polarity = string_of_polarity polarity in
    let string_preds = string_of_arith_pred preds in
@@ -33,11 +33,13 @@ let string_of_label (heapPre1,heapPre2,heapPost1,heapPost2,preds,polarity) =
 
 (*let simplify_label (heapPre1,heapPre2,heapPost1,heapPost2,pred) = (heapPre1,heapPre2,heapPost1,heapPost2,simplify_arith_pred pred) *)
 
-type invariant = (symbheap*symbheap*arith_pred)
+type invariant = (symbheap*symbheap*arith_pred*arith_pred*var_ctx) (* the second arith_pred is the real invariant *)
 
-let string_of_invariant (heap1,heap2,preds) =
-   let string_heaps = (string_of_symb_heap heap1) ^ "," ^ (string_of_symb_heap heap1) in
-   let string_preds = string_of_arith_pred preds in string_heaps ^ "," ^ string_preds
+let string_of_invariant (heap1,heap2,preds1,preds2,_) =
+   let string_heaps = (string_of_symb_heap heap1) ^ "," ^ (string_of_symb_heap heap2) in
+   let string_preds1 = string_of_arith_pred preds1 in 
+   let string_preds2 = string_of_arith_pred preds2 in    
+   string_heaps ^ "," ^ string_preds1 ^ "," ^ string_preds2
 
 type state = int
 
@@ -230,7 +232,7 @@ let build_pintern_trans sequent s ((sr,_,_,preds,_),(tag,hpre1,hpre2,hpost1,hpos
   let full_preds = (*full_arith_simplification*) (simplify_arith_pred (AAnd (preds@preds'))) in
   match Logic_to_smt.check_sat sequent'.ground_var_ctx [full_preds] with
     | false -> []
-    | _ -> [(s,sr.init_state,(hpre1,hpre2,hpost1,hpost2,full_preds,polarity))]
+    | _ -> [(s,sr.init_state,(hpre1,hpre2,hpost1,hpost2,full_preds,sequent'.ground_var_ctx,polarity))]
 
 let build_pintern_trans_incons sequent s ((_,_,_,preds,_),(tag,hpre1,hpre2,hpost1,hpost2),sequent') =
   let (preds',_) = newelem_of_sequents sequent sequent' in
@@ -241,8 +243,9 @@ let build_pintern_trans_incons sequent s ((_,_,_,preds,_),(tag,hpre1,hpre2,hpost
    | false -> []
    | _ -> 
      let s' = fresh_state() in 
-     Debug.print_debug ("Possible invariant: " ^ (string_of_label (hpre1,hpre2,hpost1,hpost2,full_preds,polarity)));
-     [((s,s',(hpre1,hpre2,hpost1,hpost2,full_preds,polarity)),(s',(hpre1,hpre2,full_preds)))]  
+     let inv = freshen_inv (hpre1,hpre2,AAnd preds',AAnd preds) in
+     Debug.print_debug ("Possible invariant: " ^ (string_of_invariant inv));
+     [((s,s',(hpre1,hpre2,hpost1,hpost2,full_preds,sequent'.ground_var_ctx,polarity)),(s',inv))]  
         
 let build_esr_ruleP sequent esrs_a = match esrs_a with
   | [] -> failwith "Error trying to build the WTS: the rule E does not contain any premise"

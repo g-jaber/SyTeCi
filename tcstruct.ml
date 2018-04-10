@@ -293,7 +293,7 @@ let rec build_tc_rule asym_unfold flag hist sequent =
            begin match (tag,Logic_to_smt.check_sat (vars@sequent.ground_var_ctx)  (preds@sequent.arith_ctx)) with
              | (Wrong,_) | (_,false) -> Continue ((tag,heapPre1,heapPre2,heapPost1,heapPost2),Stop sequent') 
              | (_,_) ->
-               let premise = build_tc_rule false hist sequent' in
+               let premise = build_tc_rule asym_unfold false hist sequent' in
                commute_result (tag,heapPre1,heapPre2,heapPost1,heapPost2) premise    
            end in 
            let g = fun ((fexpr1,heapPre1,heapPost1,vars1,preds1),(fexpr2,heapPre2,heapPost2,vars2,preds2)) 

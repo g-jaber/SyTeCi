@@ -15,7 +15,7 @@ let string_of_polarity = function
   | OA -> "OA"
 
 
-type label = (symbheap*symbheap*symbheap*symbheap*Logic.arith_pred*polarity)
+type label = (symbheap*symbheap*symbheap*symbheap*Logic.arith_pred*Syntax.var_ctx*polarity)
 
 let polarity_from_tag = function
   | Intern -> PI
@@ -23,7 +23,7 @@ let polarity_from_tag = function
   | WB -> PA
   | Wrong -> PI
 
-let string_of_label (heapPre1,heapPre2,heapPost1,heapPost2,preds,polarity) =
+let string_of_label (heapPre1,heapPre2,heapPost1,heapPost2,preds,_,polarity) =
    let string_heaps = (string_of_symb_heap heapPre1) ^ "↝" ^ (string_of_symb_heap heapPost1) ^ "," ^ (string_of_symb_heap heapPre2) ^ "↝" ^ (string_of_symb_heap heapPost2) in
    let string_polarity = string_of_polarity polarity in
    let string_preds = string_of_arith_pred preds in
@@ -33,11 +33,13 @@ let string_of_label (heapPre1,heapPre2,heapPost1,heapPost2,preds,polarity) =
 
 (*let simplify_label (heapPre1,heapPre2,heapPost1,heapPost2,pred) = (heapPre1,heapPre2,heapPost1,heapPost2,simplify_arith_pred pred) *)
 
-type invariant = (symbheap*symbheap*arith_pred)
+type invariant = (symbheap*symbheap*arith_pred*arith_pred*var_ctx) (* the second arith_pred is the real invariant *)
 
-let string_of_invariant (heap1,heap2,preds) =
-   let string_heaps = (string_of_symb_heap heap1) ^ "," ^ (string_of_symb_heap heap1) in
-   let string_preds = string_of_arith_pred preds in string_heaps ^ "," ^ string_preds
+let string_of_invariant (heap1,heap2,preds1,preds2,_) =
+   let string_heaps = (string_of_symb_heap heap1) ^ "," ^ (string_of_symb_heap heap2) in
+   let string_preds1 = string_of_arith_pred preds1 in 
+   let string_preds2 = string_of_arith_pred preds2 in    
+   string_heaps ^ "," ^ string_preds1 ^ "," ^ string_preds2
 
 type state = int
 
@@ -224,33 +226,36 @@ let build_esr_ruleO polarity = function
         | _ -> failwith "Wrong polarity"
       end  
 
-let add_incons_trans (hpre1,hpre2,hpost1,hpost2,full_neg_preds,polarity) ((sr,_,_,_,_) as esr) =
-  let s' = fresh_state() in 
-  let incons_trans = (sr.init_state,s',(hpre1,hpre2,hpost1,hpost2,full_neg_preds,polarity)) in
-  Debug.print_debug ("Possible invariant: " ^ (string_of_label (hpre1,hpre2,hpost1,hpost2,full_neg_preds,polarity)));
+let add_incons_trans (hpre1,hpre2,hpost1,hpost2,preds,preds',var_ctx,polarity) ((sr,_,_,_,_) as esr) =
+  let s' = fresh_state() in
+  let neg_preds = simplify_arith_pred (negate_arith_pred (AAnd preds)) in  
+  let full_neg_preds = simplify_arith_pred (AAnd (neg_preds::preds')) in   
+  let incons_trans = (sr.init_state,s',(hpre1,hpre2,hpost1,hpost2,full_neg_preds,var_ctx,polarity)) in
+  let inv = freshen_inv (hpre1,hpre2,AAnd preds',AAnd preds) in  
+  Debug.print_debug ("Possible invariant: " ^ (string_of_invariant inv));
   sr.states <- States.add s' sr.states;
   sr.incons_states <- States.add s' sr.incons_states;
   sr.pintern_transitions <- incons_trans::sr.pintern_transitions;
-  sr.invariants <- (hpre1,hpre2,full_neg_preds)::sr.invariants;
+  sr.invariants <- inv::sr.invariants;
   esr  
      
 let build_pintern_trans sequent ((sr1,_,_,_,_) as esr1) ((sr2,_,_,preds,_) as esr2,(tag,hpre1,hpre2,hpost1,hpost2),sequent') =
   let (preds',_) = newelem_of_sequents sequent sequent' in
   let polarity = polarity_from_tag tag in
-  let full_preds = (simplify_arith_pred (AAnd (preds@preds'))) in
-  let neg_preds = negate_arith_pred (AAnd preds) in
-  let full_neg_preds = (simplify_arith_pred (simplify_arith_pred (simplify_arith_pred (AAnd (neg_preds::preds'))))) in  
+  let full_preds = simplify_arith_pred (AAnd (preds@preds')) in
+  let neg_preds = simplify_arith_pred (negate_arith_pred (AAnd preds)) in
+  let full_neg_preds = simplify_arith_pred (AAnd (neg_preds::preds')) in  
   match (Logic_to_smt.check_sat sequent'.ground_var_ctx [full_preds],Logic_to_smt.check_sat sequent'.ground_var_ctx [full_neg_preds]) with
     | (false,false) -> esr1
-    | (false,true) -> add_incons_trans (hpre1,hpre2,hpost1,hpost2,full_neg_preds,polarity) esr1
+    | (false,true) -> add_incons_trans (hpre1,hpre2,hpost1,hpost2,preds,preds',sequent'.ground_var_ctx,polarity) esr1
     | (_,b) ->
-      let trans = (sr1.init_state,sr2.init_state,(hpre1,hpre2,hpost1,hpost2,full_preds,polarity)) in    
+      let trans = (sr1.init_state,sr2.init_state,(hpre1,hpre2,hpost1,hpost2,full_preds,sequent'.ground_var_ctx,polarity)) in    
       let (sr,isExt,isWB,_,back_trans) = basic_union sr1.init_state esr1 esr2 in
       let isExt' = if (tag = Extern) then States.add (sr2.init_state) isExt else isExt in
       let isWB' = if (tag = WB) then States.add (sr2.init_state) isWB else isWB in      
       sr.pintern_transitions <- trans::sr.pintern_transitions;
       let esr = (sr,isExt',isWB',[],back_trans) in
-      if not b then esr else add_incons_trans (hpre1,hpre2,hpost1,hpost2,full_neg_preds,polarity) esr
+      if not b then esr else add_incons_trans (hpre1,hpre2,hpost1,hpost2,preds,preds',sequent'.ground_var_ctx,polarity) esr
      
 let build_esr_ruleP sequent esrs_a = 
   let sr = singleton_sr () in 

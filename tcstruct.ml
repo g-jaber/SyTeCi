@@ -158,13 +158,13 @@ let select_if_backtrack_pair f sequent1 sequent2 =
         end
     
                        
-let rec build_tc_rule flag hist sequent = 
+let rec build_tc_rule asym_unfold flag hist sequent = 
   match sequent.formula with
   | RelV (TArrow (ty1,ty2), funct_var_ctx, (expr1,gamma1), (expr2,gamma2)) ->  
           let result = symb_val ty1 in 
           let f = fun (sval,funct_var_ctx',ground_var_ctx') ->  
                       new_sequent sequent ground_var_ctx' (RelE (ty2, (funct_var_ctx @ funct_var_ctx'), (App (expr1,sval),gamma1),(App (expr2,sval),gamma2))) in
-          let premises = select_if_backtrack_list (build_tc_rule false hist) (List.map f result) in
+          let premises = select_if_backtrack_list (build_tc_rule asym_unfold false hist) (List.map f result) in
           begin match premises with
             | LBacktrack sequent -> Backtrack sequent
             | LContinue ltc_struct -> Continue (RuleV (ltc_struct,sequent))
@@ -173,7 +173,7 @@ let rec build_tc_rule flag hist sequent =
   | RelV (TProd (ty1,ty2), funct_var_ctx, (Pair (v11, v12), gamma1), (Pair (v21, v22), gamma2)) ->
           let skor1 = RelV (ty1,funct_var_ctx,(v11,gamma1),(v21,gamma2)) in
           let skor2 = RelV (ty2,funct_var_ctx,(v12,gamma1),(v22,gamma2)) in
-          let premises = select_if_backtrack_pair (build_tc_rule false hist) (new_sequent sequent [] skor1) (new_sequent sequent [] skor2) in
+          let premises = select_if_backtrack_pair (build_tc_rule asym_unfold false hist) (new_sequent sequent [] skor1) (new_sequent sequent [] skor2) in
           begin match premises with
             | PBacktrack sequent -> Backtrack sequent
             | PContinue (tc1,tc2) -> Continue (RuleVProd ((tc1,tc2), sequent))
@@ -186,7 +186,7 @@ let rec build_tc_rule flag hist sequent =
             | Some (TArrow (ty1,ty2),fk1,fv1,fk2,fv2) -> 
                 let skorv = RelV (ty1,funct_var_ctx,fv1,fv2) in
                 let skork = RelK (ty2,ty,funct_var_ctx,fk1,fk2) in
-                let premises = select_if_backtrack_pair (build_tc_rule false hist) (new_sequent sequent [] skorv) (new_sequent sequent [] skork) in
+                let premises = select_if_backtrack_pair (build_tc_rule asym_unfold false hist) (new_sequent sequent [] skorv) (new_sequent sequent [] skork) in
                 begin match  premises with
                   | PBacktrack sequent -> Backtrack sequent
                   | PContinue (tc1,tc2) -> Continue (RuleSext ((tc1,tc2), sequent))
@@ -200,7 +200,7 @@ let rec build_tc_rule flag hist sequent =
           let f = fun (sval,funct_var_ctx',ground_var_ctx') ->  
                        new_sequent sequent ground_var_ctx' 
                        (RelE (ty2,funct_var_ctx @ funct_var_ctx', (fill_hole ctx1 sval,gamma1),(fill_hole ctx2 sval,gamma2))) in
-          let premises = select_if_backtrack_list (build_tc_rule false hist) (List.map f result) in
+          let premises = select_if_backtrack_list (build_tc_rule asym_unfold false hist) (List.map f result) in
           begin match premises with
             | LBacktrack sequent -> Backtrack sequent
             | LContinue ltc_struct -> Continue (RuleK (ltc_struct,sequent))
@@ -216,7 +216,7 @@ let rec build_tc_rule flag hist sequent =
          let expr1' = fill_hole ctx1 (App (body1,val1)) in
          let expr2' = fill_hole ctx2 (App (body2,val2)) in
          let sequent' = new_sequent sequent [] ~j:(j-1) ~k:(k-1) (RelE (ty, funct_var_ctx, (expr1',gamma1), (expr2',gamma2))) in         
-         let premise = build_tc_rule false hist sequent' in
+         let premise = build_tc_rule asym_unfold false hist sequent' in
          begin match premise with
            | Continue tc_struct ->  Continue (Unfold (tc_struct,sequent))
            | Backtrack (_,bt_sequent,_) as bt -> 
@@ -242,14 +242,14 @@ let rec build_tc_rule flag hist sequent =
                   let expr2'' = fill_hole ctx2' (App (body2,val2)) in
                   let sequent'' = new_sequent sequent [] ~j:(j-1) ~k:(k-1) (RelE (ty, funct_var_ctx, (expr1'',gamma1), (expr2'',gamma2))) in
                   let hist' = if flag then hist else (sequent',false)::hist in
-                  let premise = build_tc_rule false hist' sequent'' in
+                  let premise = build_tc_rule asym_unfold false hist' sequent'' in
                   begin match premise with
                     | Continue tc_struct ->  Continue (Unfold (tc_struct,sequent'))
                     | Backtrack (gsubst,bt_sequent,gen_sequent) as bt -> (* When we have to backtrack, we check that the current sequent is the one we have to backtrack to *)
                         Debug.print_debug ("Backtracking " ^ (string_of_int bt_sequent.id) ^ " and " ^ (string_of_int sequent'.id));
                         if bt_sequent.id = sequent'.id then begin
                            let hist'' =  (gen_sequent,true)::hist in
-                           let premise = build_tc_rule true hist'' gen_sequent in
+                           let premise = build_tc_rule asym_unfold true hist'' gen_sequent in
                            begin match premise with
                              | Continue tc_struct ->  Continue (Gen (gsubst,tc_struct,sequent))
                              | Backtrack _ -> failwith "Dubious backtracking."
@@ -259,22 +259,28 @@ let rec build_tc_rule flag hist sequent =
          end     
        | (IsRecCall (_,body1,val1,ctx1), _,j,_,_) -> 
            Debug.print_debug ("LUnfold : " ^ (string_of_exprML expr1) ^ " and " ^ (string_of_exprML expr2));
-           let expr1' = fill_hole ctx1 (App (body1,val1)) in
-           let sequent' = new_sequent sequent [] ~j:(j-1)  (RelE (ty,funct_var_ctx,(expr1',gamma1),(expr2,gamma2))) in
-           let premise = build_tc_rule false hist sequent' in
-           begin match premise with
-             | Continue tc_struct ->  Continue (LUnfold (tc_struct,sequent))
-             | Backtrack _ -> premise           
-           end
+           if asym_unfold then begin
+             let expr1' = fill_hole ctx1 (App (body1,val1)) in
+             let sequent' = new_sequent sequent [] ~j:(j-1)  (RelE (ty,funct_var_ctx,(expr1',gamma1),(expr2,gamma2))) in
+             let premise = build_tc_rule asym_unfold false hist sequent' in
+             begin match premise with
+               | Continue tc_struct ->  Continue (LUnfold (tc_struct,sequent))
+               | Backtrack _ -> premise     
+             end
+           end  
+           else Continue (Stop sequent)
        | (_, IsRecCall (_,body2,val2,ctx2),_,k,_) ->
-           Debug.print_debug ("RUnfold : " ^ (string_of_exprML expr1) ^ " and " ^ (string_of_exprML expr2));       
-           let expr2' = fill_hole ctx2 (App (body2,val2)) in
-           let sequent' = new_sequent sequent [] ~k:(k-1) (RelE (ty,funct_var_ctx,(expr1,gamma1),(expr2',gamma2))) in       
-           let premise = build_tc_rule false hist sequent' in
-           begin match premise with
-             | Continue tc_struct ->  Continue (RUnfold (tc_struct,sequent))
-             | Backtrack _ -> premise               
+           Debug.print_debug ("RUnfold : " ^ (string_of_exprML expr1) ^ " and " ^ (string_of_exprML expr2));
+           if asym_unfold then begin
+             let expr2' = fill_hole ctx2 (App (body2,val2)) in
+             let sequent' = new_sequent sequent [] ~k:(k-1) (RelE (ty,funct_var_ctx,(expr1,gamma1),(expr2',gamma2))) in       
+             let premise = build_tc_rule asym_unfold false hist sequent' in
+             begin match premise with
+               | Continue tc_struct ->  Continue (RUnfold (tc_struct,sequent))
+               | Backtrack _ -> premise               
+             end           
            end
+           else Continue (Stop sequent)
        | (_,_,_,_,_) -> failwith "Error: RelSI is applied on terms which are not recursive calls. Please report."   
      end
   | RelE (ty, funct_var_ctx, fexpr1, fexpr2) ->       
@@ -287,7 +293,7 @@ let rec build_tc_rule flag hist sequent =
            begin match tag with
              | Wrong -> Continue ((tag,heapPre1,heapPre2,heapPost1,heapPost2),Stop sequent') 
              | _ ->
-               let premise = build_tc_rule false hist sequent' in 
+               let premise = build_tc_rule asym_unfold false hist sequent' in 
                commute_result (tag,heapPre1,heapPre2,heapPost1,heapPost2) premise    
            end in 
            let g = fun ((fexpr1,heapPre1,heapPost1,vars1,preds1),(fexpr2,heapPre2,heapPost2,vars2,preds2)) 
@@ -311,9 +317,9 @@ let extract_pred_from_vg sequent =
         | RelV (TInt,_,(v1,_), (v2,_)) -> AEqual (v1,v2)
         | _ -> failwith "Error: The rule VG has been used on a non-ground type."  
         
-let build_tc ty expr1 expr2 step1 step2 =
-  match build_tc_rule false [] (emptyctx_sequent (RelE (ty,[],(expr1,[]),(expr2,[]))) step1 step2) with
+let build_tc asym_unfold ty expr1 expr2 step1 step2 =
+  match build_tc_rule asym_unfold false [] (emptyctx_sequent (RelE (ty,[],(expr1,[]),(expr2,[]))) step1 step2) with
     | Continue tc -> tc
-    | Backtrack (_,bt_sequent,gen_sequent) -> failwith ("Uncaught backtracking " ^ (string_of_int bt_sequent.id) ^ " and " ^ (string_of_int gen_sequent.id))
+    | Backtrack (_,bt_sequent,gen_sequent) -> failwith ("Error: Uncaught backtracking " ^ (string_of_int bt_sequent.id) ^ " and " ^ (string_of_int gen_sequent.id) ^ ". Please report.")
         
         

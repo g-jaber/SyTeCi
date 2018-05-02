@@ -21,6 +21,7 @@ let () =
         let si_j = ref 0 in
         let si_k = ref 0 in
         let bounded_checking = ref false in
+        let asym_unfold = ref false in
         let compute_char_form = ref false in
         let compute_sts = ref true in
         let print_dg = ref false in
@@ -28,9 +29,10 @@ let () =
           [("-cf",Set compute_char_form,"Compute the temporal characteristic formula");
            ("-dg",Set print_dg,"Print the computed derivation graph");
            ("-debug",Set Debug.debug_mode,"Debug mode"); 
-           ("-j n",Set_int si_j,"Fixe the left step-index to n in order to control unfolding of recursive calls");
-           ("-k n",Set_int si_k,"Fixe the right step-index to n in order to control unfolding of recursive calls");
+           ("-j",Set_int si_j,"Fixe the left step-index to n in order to control unfolding of recursive calls");
+           ("-k",Set_int si_k,"Fixe the right step-index to n in order to control unfolding of recursive calls");
            ("-bc",Set bounded_checking, "Enable bounded checking");
+           ("-au",Set asym_unfold, "Enable asymmetric unfolding of recursive calls");           
            ("-nosts",Clear compute_sts, "Do not compute the STS")
           ] in
         let usage_msg = "Usage: ./syteci filename1 filename2 [options] where the options are:" in          
@@ -47,7 +49,7 @@ let () =
         check_number_filenames ();
         let (expr1,ty1) = get_term !filename1 in
         let (expr2,_) = get_term !filename2 in
-        let tc = Tcstruct.build_tc ty1 expr1 expr2 !si_j !si_k  in
+        let tc = Tcstruct.build_tc !asym_unfold ty1 expr1 expr2 !si_j !si_k  in
         if !print_dg then begin 
            print_endline ("Inference Graph:");
            print_endline (Tcstruct.string_of_tc tc)

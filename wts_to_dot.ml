@@ -3,7 +3,7 @@ open Unif
 
 let dlabel_from_state sr s =
   let l = string_of_state s in
-  let shape = if States.mem s sr.incons_states then "diamond" else if s = sr.init_state then "star" else "circle" in 
+  let shape = if States.mem s sr.incons_states then "diamond" else if s = sr.init_state then "box" else "circle" in 
   l ^ "[shape = "^ shape ^", label=\""^ l ^ "\"];"
 
 

@@ -50,7 +50,8 @@ let () =
         parse speclist get_filename usage_msg;
         check_number_filenames ();
         let (expr1,ty1) = get_term !filename1 in
-        let (expr2,_) = get_term !filename2 in
+        let (expr2,ty2) = get_term !filename2 in
+        if ty1 <> ty2 then failwith ("Error: the first program is of type " ^ (Syntax.string_of_typeML ty1) ^ " while the second program is of type "^ (Syntax.string_of_typeML ty1) ^ ".");
         let tc = Tcstruct.build_tc !asym_unfold ty1 expr1 expr2 !si_j !si_k  in
         if !print_dg then begin 
            print_endline ("Inference Graph:");
@@ -67,6 +68,7 @@ let () =
           Wts_to_dot.dot_from_sr sr';
           if !pred_abstr then begin
             print_endline("Predicate Abstraction:");
-            Pred_abstr.get_invariant_from_wts sr'
+            let push_sys = Pred_abstr.wts_to_ps sr' in
+            Pushdown_system.dot_from_push_sys push_sys
           end
         end

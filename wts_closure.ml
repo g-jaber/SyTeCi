@@ -6,19 +6,21 @@ let adjacency_matrix sr =
   let matrix_oeps = Array.make_matrix (n+1) (n+1) false in  
   let matrix_wb = Array.make_matrix (n+1) (n+1) false in  
   List.iter (fun (i,j) -> matrix_extern.(i).(j) <- true) sr.extern_transitions;
-  List.iter (fun (i,j) -> matrix_oeps.(i).(j) <- true) sr.oeps_transitions;  
+(*  List.iter (fun (i,j) -> matrix_oeps.(i).(j) <- true) sr.oeps_transitions;  *)
   List.iter (fun (i,j) -> matrix_wb.(i).(j) <- true) sr.wb_transitions;  
   (matrix_extern,matrix_oeps,matrix_wb)
 
-let matrix_to_trans matrix =
+(* Careful: Impure function !! *)
+let matrix_to_trans sr matrix =
   let n = Array.length matrix in
   let result = ref [] in
   for i = 0 to n-1 do
+    result := [];
     for j = 0 to n-1 do
-      if matrix.(i).(j) then result := (i,j)::!result else ()
+      if matrix.(i).(j) then result := (OET j)::!result else ()
     done;
-  done;
-  !result
+    sr.trans_fun <- add_list_trans sr.trans_fun i !result;
+  done
 
 let print_matrix matrix = 
   let n = Array.length matrix in
@@ -72,10 +74,16 @@ let transitive_closure matrix = (* The transitive closure is implemented via a s
   done;
   result  
   
+let isOQ = function
+  | OT (_,OQ) -> true
+  | _ -> false
 
-  
-let get_isRuleV sr = List.map (fun (s,_,_) -> s) (List.filter (fun (_,_,polarity) -> polarity = OQ) sr.o_transitions)
-let get_isRuleK sr = List.map (fun (s,_,_) -> s) (List.filter (fun (_,_,polarity) -> polarity = OA) sr.o_transitions)
+let isOA = function
+  | OT (_,OA) -> true
+  | _ -> false
+
+let get_isRuleV sr = List.map (fun (s,_) -> s) ((List.filter (fun (s,l) -> List.exists isOQ l)) (StateMap.bindings sr.trans_fun))
+let get_isRuleK sr = List.map (fun (s,_) -> s) ((List.filter (fun (s,l) -> List.exists isOA l)) (StateMap.bindings sr.trans_fun))
 
 (*let prune_noentry_states =
   let is_reach = ref false in
@@ -104,7 +112,7 @@ let sr_closure_aux sr =
   in
   List.iter (aux matrix_trans_extern) (get_isRuleV sr);
   List.iter (aux matrix_trans_wb)  (get_isRuleK sr);
-  sr.oeps_transitions <- matrix_to_trans matrix_oeps;
+  matrix_to_trans sr matrix_oeps;
   sr
 
 let rec fixed_point f x =

@@ -1,7 +1,7 @@
 open Arg
 
 
-let get_term filename = 
+let get_term filename =
  let inBuffer = open_in filename in
  let lineBuffer = Lexing.from_channel inBuffer in
  try let expr = Parser.prog Lexer.token lineBuffer in
@@ -12,8 +12,8 @@ let get_term filename =
  with
    | Lexer.SyntaxError msg -> failwith ("Parsing Error :" ^ msg)
    | Parser.Error -> failwith ("Syntax Error at position "^ (string_of_int (Lexing.lexeme_start lineBuffer)))
-   | Type_checker.TypingError msg -> failwith ("Type error :" ^ msg)   
-   
+   | Type_checker.TypingError msg -> failwith ("Type error :" ^ msg)
+
 let () =
         let number_filename = ref 0 in
         let filename1 = ref "" in
@@ -26,18 +26,20 @@ let () =
         let compute_sts = ref true in
         let print_dg = ref false in
         let pred_abstr = ref false in
-        let speclist = 
+        let chc = ref false in
+        let speclist =
           [("-cf",Set compute_char_form,"Compute the temporal characteristic formula");
            ("-dg",Set print_dg,"Print the computed derivation graph");
-           ("-debug",Set Debug.debug_mode,"Debug mode"); 
+           ("-debug",Set Debug.debug_mode,"Debug mode");
            ("-j",Set_int si_j,"Fixe the left step-index to n in order to control unfolding of recursive calls");
            ("-k",Set_int si_k,"Fixe the right step-index to n in order to control unfolding of recursive calls");
            ("-bc",Set bounded_checking, "Enable bounded checking");
-           ("-au",Set asym_unfold, "Enable asymmetric unfolding of recursive calls");           
+           ("-au",Set asym_unfold, "Enable asymmetric unfolding of recursive calls");
            ("-nosts",Clear compute_sts, "Do not compute the STS");
-           ("-pa",Set pred_abstr,"Perform predicate abstraction analysis")
+           ("-pa",Set pred_abstr,"Perform predicate abstraction analysis");
+           ("-chc", Set chc,"Translate the reachability of inconsistent states as a constrained Horn clause")
           ] in
-        let usage_msg = "Usage: ./syteci filename1 filename2 [options] where the options are:" in          
+        let usage_msg = "Usage: ./syteci filename1 filename2 [options] where the options are:" in
         let get_filename str =
           match !number_filename with
             | 0 -> filename1 := str; number_filename := !number_filename+1;
@@ -53,19 +55,24 @@ let () =
         let (expr2,ty2) = get_term !filename2 in
         if ty1 <> ty2 then failwith ("Error: the first program is of type " ^ (Syntax.string_of_typeML ty1) ^ " while the second program is of type "^ (Syntax.string_of_typeML ty1) ^ ".");
         let tc = Tcstruct.build_tc !asym_unfold ty1 expr1 expr2 !si_j !si_k  in
-        if !print_dg then begin 
+        if !print_dg then begin
            print_endline ("Inference Graph:");
            print_endline (Tcstruct.string_of_tc tc)
-        end;   
+        end;
         if !compute_char_form then begin
-          let temp_form = Logic.iter 10 Templogic.simplify_temp_formula (Templogic.tformula_of_tc !bounded_checking tc) in   
+          let temp_form = Logic.iter 10 Templogic.simplify_temp_formula (Templogic.tformula_of_tc !bounded_checking tc) in
           print_endline ("Temporal Formula:");
           print_endline (Templogic.string_of_temp_formula temp_form)
         end;
         if !compute_sts then begin
-          let sr = Wts.build_sr !bounded_checking tc in     
+          let sr = Wts.build_sr !bounded_checking tc in
           let sr' = Wts_closure.sr_closure sr in
           Wts_to_dot.dot_from_sr sr';
+          if !chc then begin
+            print_endline("Constrained Horn Clause:");
+            let lchc = Chc.visit_sr_full sr' in
+            Chc.print_lchc_smtlib lchc;
+          end;
           if !pred_abstr then begin
             print_endline("Predicate Abstraction:");
             let push_sys = Pred_abstr.wts_to_ps sr' in

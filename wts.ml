@@ -5,19 +5,20 @@ open Syntax
 open Skor
 open Unif
 
-type polarity = PI | PQ | PA | PE| OQ | OA | OE
+type ppolarity = PI | PQ | PA
+type opolarity = OQ | OA
 
-let string_of_polarity = function
+let string_of_ppolarity = function
   | PI -> "PI"
   | PQ -> "PQ"
   | PA -> "PA"
-  | PE -> "PE"
+
+let string_of_opolarity = function
   | OQ -> "OQ"
   | OA -> "OA"
-  | OE -> "OE"
 
 
-type label = (symbheap*symbheap*symbheap*symbheap*Logic.arith_pred*Syntax.var_ctx*polarity)
+type label = (symbheap*symbheap*symbheap*symbheap*Logic.arith_pred*Syntax.var_ctx*ppolarity)
 
 let polarity_from_tag = function
   | Intern -> PI
@@ -30,7 +31,7 @@ let string_of_label (heapPre1,heapPre2,heapPost1,heapPost2,preds,_,polarity) =
                      ^ (string_of_symb_heap heapPost1) ^ ","
                      ^ (string_of_symb_heap heapPre2) ^ "↝"
                      ^ (string_of_symb_heap heapPost2) in
-   let string_polarity = string_of_polarity polarity in
+   let string_polarity = string_of_ppolarity polarity in
    let string_preds = string_of_arith_pred preds in
    match string_preds with
      | "" -> string_heaps ^ "," ^ string_polarity
@@ -73,12 +74,14 @@ let string_of_state = string_of_int
 type transition =
   | PT of (state*label)
   | PET of (state*gsubst)
-  | OT of (state*polarity)
+  | PBT of (state*gsubst)
+  | OT of (state*opolarity)
   | OET of state
 
 let get_state_of_trans = function
   | PT (s,_) -> s
   | PET (s,_) -> s
+  | PBT (s,_) -> s
   | OT (s,_) -> s
   | OET s -> s
 
@@ -100,9 +103,15 @@ type sr = {
   }
 
 let string_of_transition s1 = function
-  | PT (s2,label) ->   (string_of_state s1) ^ "-(" ^ (string_of_label label) ^")->" ^ (string_of_state s2)
-  | PET (s2,gsubst) -> (string_of_state s1) ^ "-"^(string_of_gsubst gsubst)^"->" ^ (string_of_state s2)
-  | OT (s2,polarity) -> (string_of_state s1) ^ "-"^(string_of_polarity polarity)^"->" ^ (string_of_state s2)
+  | PT (s2,label) ->
+    (string_of_state s1) ^ "-(" ^ (string_of_label label) ^")->"
+    ^ (string_of_state s2)
+  | PET (s2,gsubst)  | PBT (s2,gsubst) ->
+    (string_of_state s1) ^ "-"^(string_of_gsubst gsubst)^"->"
+    ^ (string_of_state s2)
+  | OT (s2,polarity) ->
+    (string_of_state s1) ^ "-"^(string_of_opolarity polarity)^"->"
+    ^ (string_of_state s2)
   | OET s2 -> (string_of_state s1) ^ "-->" ^ (string_of_state s2)
 
 let get_ltrans trans_fun s =
@@ -211,32 +220,36 @@ let union ((sr1,isExt1,isWB1,preds1,p_back_trans1) as esr1) ((sr2,isExt2,isWB2,p
   let i = sr1.init_state in
   let j = sr2.init_state in
   match (i < j,i=j) with
-   | (true,_) -> Debug.print_debug ("Merging1 " ^ (string_of_state j) ^ " into " ^ (string_of_state i));
-                 let (sr2,isExt2,isWB2,preds2,p_back_trans2) = substitute_state_esr i esr2  in
-                 basic_union i (sr1,isExt1,isWB1,preds1,p_back_trans1) (sr2,isExt2,isWB2,preds2,p_back_trans2)
-   | (false,true) -> failwith "Error trying to build the WTS: We are trying to merge two ESRs which already share the same initial state"
-   | (false,false) -> Debug.print_debug ("Merging2 " ^ (string_of_state i) ^ " into " ^ (string_of_state j));
-                      let (sr1,isExt1,isWB1,preds1,p_back_trans1) = substitute_state_esr j esr1  in
-                      basic_union j (sr1,isExt1,isWB1,preds1,p_back_trans1) (sr2,isExt2,isWB2,preds2,p_back_trans2)
+  | (true,_) ->
+    Debug.print_debug ("Merging1 " ^ (string_of_state j) ^ " into " ^ (string_of_state i));
+    let (sr2,isExt2,isWB2,preds2,p_back_trans2) = substitute_state_esr i esr2  in
+    basic_union i (sr1,isExt1,isWB1,preds1,p_back_trans1)
+      (sr2,isExt2,isWB2,preds2,p_back_trans2)
+  | (false,true) ->
+    failwith ("Error trying to build the WTS: We are trying to merge two ESRs which already share the same initial state")
+  | (false,false) -> Debug.print_debug ("Merging2 " ^ (string_of_state i)
+                                        ^ " into " ^ (string_of_state j));
+    let (sr1,isExt1,isWB1,preds1,p_back_trans1) = substitute_state_esr j esr1  in
+    basic_union j (sr1,isExt1,isWB1,preds1,p_back_trans1)
+      (sr2,isExt2,isWB2,preds2,p_back_trans2)
 
 let build_esr_ruleO polarity = function
   | [] -> failwith "Error trying to build the WTS: the rule V or K does not contain any premise"
   | esr::esrs ->
-      let new_init_state = fresh_state () in
-      let (sr,isExt,isWB,preds,p_back_trans) = List.fold_left (basic_union new_init_state) esr esrs in
-      let wb_transitions = List.map (fun state' -> (new_init_state, state')) (States.elements isWB) in
-      let extern_transitions = List.map (fun state' -> (new_init_state, state')) (States.elements isExt) in
-      let o_transitions = List.map (fun (sr,_,_,_,_) -> OT (sr.init_state,polarity)) (esr::esrs) in
-      sr.states <- States.add new_init_state sr.states;
-      sr.init_state <- new_init_state;
-      sr.wb_transitions <- wb_transitions@sr.wb_transitions;
-      sr.extern_transitions <- wb_transitions@extern_transitions@sr.extern_transitions;
-      sr.trans_fun <- add_list_trans sr.trans_fun new_init_state o_transitions;
-      begin match polarity with
-        | OQ -> (sr,States.empty,States.empty,preds,p_back_trans)
-        | OA -> (sr,States.empty,isWB,preds,p_back_trans)
-        | _ -> failwith "Wrong polarity"
-      end
+    let new_init_state = fresh_state () in
+    let (sr,isExt,isWB,preds,p_back_trans) = List.fold_left (basic_union new_init_state) esr esrs in
+    let wb_transitions = List.map (fun state' -> (new_init_state, state')) (States.elements isWB) in
+    let extern_transitions = List.map (fun state' -> (new_init_state, state')) (States.elements isExt) in
+    let o_transitions = List.map (fun (sr,_,_,_,_) -> OT (sr.init_state,polarity)) (esr::esrs) in
+    sr.states <- States.add new_init_state sr.states;
+    sr.init_state <- new_init_state;
+    sr.wb_transitions <- wb_transitions@sr.wb_transitions;
+    sr.extern_transitions <- wb_transitions@extern_transitions@sr.extern_transitions;
+    sr.trans_fun <- add_list_trans sr.trans_fun new_init_state o_transitions;
+    begin match polarity with
+      | OQ -> (sr,States.empty,States.empty,preds,p_back_trans)
+      | OA -> (sr,States.empty,isWB,preds,p_back_trans)
+    end
 
 let add_incons_trans (hpre1,hpre2,hpost1,hpost2,preds,preds',var_ctx,polarity) ((sr,_,_,_,_) as esr) =
   let s' = fresh_state() in
@@ -284,29 +297,33 @@ let rec build_esr bc = function
     let preds = if bc then [ATrue] else [AFalse] in
     (sr,States.empty,States.empty,preds,[])
   | RuleVProd ((tc1,tc2),_) | RuleSext ((tc1,tc2),_) ->
-      let esr1 = build_esr bc tc1 in
-      let esr2 = build_esr bc tc2 in
-      union esr1 esr2
+    let esr1 = build_esr bc tc1 in
+    let esr2 = build_esr bc tc2 in
+    union esr1 esr2
   | Unfold (tc,_) | LUnfold (tc,_) | RUnfold (tc,_)  | Rewrite (tc,_) -> build_esr bc tc
   | RuleV (tcs,_) -> let esrs = List.map (build_esr bc) tcs in build_esr_ruleO OQ esrs
   | RuleK (tcs,_) -> let esrs = List.map (build_esr bc) tcs in build_esr_ruleO OA esrs
   | RuleE (tcs_a,sequent) ->
-      let esrs_a = List.map (fun (annotation,tc) -> (build_esr bc tc,annotation,get_root tc)) tcs_a in
-      build_esr_ruleP sequent esrs_a
+    let esrs_a = List.map (fun (annotation,tc) -> (build_esr bc tc,annotation,get_root tc))
+        tcs_a in
+    build_esr_ruleP sequent esrs_a
   | Gen (gsubst,tc,_) ->
-      let (sr,isExt,isWB,preds,p_back_trans) = build_esr bc tc in
-      let new_init_state = fresh_state () in
-      sr.trans_fun <- add_trans sr.trans_fun new_init_state (PET (sr.init_state,gsubst));
-      sr.init_state <- new_init_state;
-      let premise_sequent = get_root tc in
-      Debug.print_debug ("Gen id " ^ (string_of_int premise_sequent.id));
-      let (p_back_trans_now,p_back_trans_later) = List.partition (fun (_,id,_) -> id = premise_sequent.id) p_back_trans in
-      let back_trans = List.map (fun (state,_,gsubst) -> (state,PET (new_init_state,gsubst))) p_back_trans_now in
-      sr.trans_fun <- List.fold_left (fun trans_fun (s,trans) -> (add_trans trans_fun s trans)) sr.trans_fun back_trans;
-      (sr,isExt,isWB,preds,p_back_trans_later)
+    let (sr,isExt,isWB,preds,p_back_trans) = build_esr bc tc in
+    let new_init_state = fresh_state () in
+    sr.trans_fun <- add_trans sr.trans_fun new_init_state (PET (sr.init_state,gsubst));
+    sr.init_state <- new_init_state;
+    let premise_sequent = get_root tc in
+    Debug.print_debug ("Gen id " ^ (string_of_int premise_sequent.id));
+    let (p_back_trans_now,p_back_trans_later) = List.partition
+        (fun (_,id,_) -> id = premise_sequent.id) p_back_trans in
+    let back_trans = List.map (fun (state,_,gsubst) -> (state,PBT (new_init_state,gsubst)))
+        p_back_trans_now in
+    sr.trans_fun <- List.fold_left (fun trans_fun (s,trans) -> (add_trans trans_fun s trans))
+        sr.trans_fun back_trans;
+    (sr,isExt,isWB,preds,p_back_trans_later)
   | Circ (gsubst,back_sequent,_) ->
-      let sr = singleton_sr () in
-      (sr,States.empty,States.empty,[],[(sr.init_state,back_sequent.id,gsubst)])
+    let sr = singleton_sr () in
+    (sr,States.empty,States.empty,[],[(sr.init_state,back_sequent.id,gsubst)])
 
 (*let remove_useless_state tc =
     let n = (States.max_elt sr.states) in

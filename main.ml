@@ -1,12 +1,12 @@
 open Arg
+open Lexing
 
-
-let get_term filename =
+let get_term poly filename =
  let inBuffer = open_in filename in
  let lineBuffer = Lexing.from_channel inBuffer in
  try let expr = Parser.prog Lexer.token lineBuffer in
      Debug.print_debug (Syntax.string_of_exprML expr);
-     let (ty,_) = Type_checker.typing [] [] expr in
+     let ty = Type_checker.typing_full poly expr in
      Debug.print_debug (Syntax.string_of_typeML ty);
      (expr,ty)
  with
@@ -27,6 +27,7 @@ let () =
         let print_dg = ref false in
         let pred_abstr = ref false in
         let chc = ref false in
+        let poly = ref false in
         let speclist =
           [("-cf",Set compute_char_form,"Compute the temporal characteristic formula");
            ("-dg",Set print_dg,"Print the computed derivation graph");
@@ -37,7 +38,8 @@ let () =
            ("-au",Set asym_unfold, "Enable asymmetric unfolding of recursive calls");
            ("-nosts",Clear compute_sts, "Do not compute the STS");
            ("-pa",Set pred_abstr,"Perform predicate abstraction analysis");
-           ("-chc", Set chc,"Translate the reachability of inconsistent states as a constrained Horn clause")
+           ("-chc", Set chc,"Translate the reachability of inconsistent states as a constrained Horn clause");
+           ("-poly", Set poly,"Allow polymorphic reasoning (Experimental)")
           ] in
         let usage_msg = "Usage: ./syteci filename1 filename2 [options] where the options are:" in
         let get_filename str =
@@ -51,9 +53,12 @@ let () =
         in
         parse speclist get_filename usage_msg;
         check_number_filenames ();
-        let (expr1,ty1) = get_term !filename1 in
-        let (expr2,ty2) = get_term !filename2 in
-        if ty1 <> ty2 then failwith ("Error: the first program is of type " ^ (Syntax.string_of_typeML ty1) ^ " while the second program is of type "^ (Syntax.string_of_typeML ty1) ^ ".");
+        let (expr1,ty1) = get_term !poly !filename1 in
+        let (expr2,ty2) = get_term !poly !filename2 in
+        if ty1 <> ty2 then failwith ("Error: the first program is of type "
+                                     ^ (Syntax.string_of_typeML ty1)
+                                     ^ " while the second program is of type "
+                                     ^ (Syntax.string_of_typeML ty2) ^ ".");
         let tc = Tcstruct.build_tc !asym_unfold ty1 expr1 expr2 !si_j !si_k  in
         if !print_dg then begin
            print_endline ("Inference Graph:");
@@ -70,8 +75,8 @@ let () =
           Wts_to_dot.dot_from_sr sr';
           if !chc then begin
             print_endline("Constrained Horn Clause:");
-            let lchc = Chc.visit_sr_full sr' in
-            Chc.print_lchc_smtlib lchc;
+            let full_chc = Chc.visit_sr_full sr' in
+            Chc.print_full_chc full_chc;
           end;
           if !pred_abstr then begin
             print_endline("Predicate Abstraction:");

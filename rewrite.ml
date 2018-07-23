@@ -1,25 +1,25 @@
 open Syntax
 open Unif
-  
+
 let rec rewrite_ac vars expr = match expr with
   | Plus (Int 0,expr) -> rewrite_ac vars expr
-  | Plus (expr,Int 0) -> rewrite_ac vars expr  
+  | Plus (expr,Int 0) -> rewrite_ac vars expr
   | Plus (Plus(Hole,expr1),expr2) when ((is_ground_term vars expr1) && (is_ground_term vars expr2)) -> Plus (Plus (expr1,expr2),Hole)
   | Plus (Plus(expr1,Hole),expr2) when ((is_ground_term vars expr1) && (is_ground_term vars expr2)) -> Plus (Plus (expr1,expr2),Hole)
   | Mult (Int 1,expr) -> rewrite_ac vars expr
-  | Mult (expr,Int 1) -> rewrite_ac vars expr  
+  | Mult (expr,Int 1) -> rewrite_ac vars expr
   | Mult (Mult(Hole,expr1),expr2) when ((is_ground_term vars expr1) && (is_ground_term vars expr2)) -> Mult (Mult (expr1,expr2),Hole)
   | Mult (Mult(expr1,Hole),expr2) when ((is_ground_term vars expr1) && (is_ground_term vars expr2)) -> Mult (Mult (expr1,expr2),Hole)
   | Mult (expr1,Mult(Hole,expr2)) when ((is_ground_term vars expr1) && (is_ground_term vars expr2)) -> Mult (Mult (expr1,expr2),Hole)
-  | Mult (expr1,Mult(expr2,Hole)) when ((is_ground_term vars expr1) && (is_ground_term vars expr2)) -> Mult (Mult (expr1,expr2),Hole)  
+  | Mult (expr1,Mult(expr2,Hole)) when ((is_ground_term vars expr1) && (is_ground_term vars expr2)) -> Mult (Mult (expr1,expr2),Hole)
   | And (And(Hole,expr1),expr2) when ((is_ground_term vars expr1) && (is_ground_term vars expr2)) -> And (And (expr1,expr2),Hole)
   | And (And(expr1,Hole),expr2) when ((is_ground_term vars expr1) && (is_ground_term vars expr2)) -> And (And (expr1,expr2),Hole)
   | Or (Or(Hole,expr1),expr2) when ((is_ground_term vars expr1) && (is_ground_term vars expr2)) -> Or (Or (expr1,expr2),Hole)
-  | Or (Or(expr1,Hole),expr2) when ((is_ground_term vars expr1) && (is_ground_term vars expr2)) -> Or (Or (expr1,expr2),Hole)   
+  | Or (Or(expr1,Hole),expr2) when ((is_ground_term vars expr1) && (is_ground_term vars expr2)) -> Or (Or (expr1,expr2),Hole)
   | Plus (expr1,expr2) when (is_ground_term_with_hole vars expr1) && (is_ground_term vars expr2) -> Plus (expr2,rewrite_ac vars expr1)
-  | Plus (expr1,expr2) when (is_ground_term vars expr1) && (is_ground_term_with_hole vars expr2) -> Plus (expr1,rewrite_ac vars expr2)  
+  | Plus (expr1,expr2) when (is_ground_term vars expr1) && (is_ground_term_with_hole vars expr2) -> Plus (expr1,rewrite_ac vars expr2)
   | Mult (expr1,expr2) when (is_ground_term_with_hole vars expr1) && (is_ground_term vars expr2) -> Mult (expr2,rewrite_ac vars expr1)
-  | Mult (expr1,expr2) when (is_ground_term vars expr1) && (is_ground_term_with_hole vars expr2) -> Mult (expr1,rewrite_ac vars expr2)    
+  | Mult (expr1,expr2) when (is_ground_term vars expr1) && (is_ground_term_with_hole vars expr2) -> Mult (expr1,rewrite_ac vars expr2)
   | And (expr1,expr2) when (is_ground_term_with_hole vars expr1) && (is_ground_term vars expr2) -> And (expr2,rewrite_ac vars expr1)
   | And (expr1,expr2) when (is_ground_term vars expr1) && (is_ground_term_with_hole vars expr2) -> And (expr1,rewrite_ac vars expr2)
   | Or (expr1,expr2) when (is_ground_term_with_hole vars expr1) && (is_ground_term vars expr2) -> Or (expr2,rewrite_ac vars expr1)
@@ -42,6 +42,7 @@ let rec rewrite_ac vars expr = match expr with
   | Fun ((var,ty),expr') -> Fun ((var,ty),rewrite_ac (List.filter (fun (x,_) -> x <> var)  vars) expr')
   | Fix ((var,ty),(idfun,ty'),expr') -> Fix ((var,ty),(idfun,ty'),rewrite_ac (List.filter (fun (x,_) -> x <> var && x <> idfun)  vars) expr')
   | Let (var,expr1,expr2) ->  Let (var,rewrite_ac vars expr1,rewrite_ac (List.filter (fun (x,_) -> x <> var) vars) expr2)
+  | LetPair (var1,var2,expr1,expr2) ->  LetPair (var1,var2,rewrite_ac vars expr1,rewrite_ac (List.filter (fun (x,_) -> x <> var1 && x <> var2) vars) expr2)
   | App (expr1,expr2) -> App (rewrite_ac vars expr1,rewrite_ac vars expr2)
   | Seq (expr1,expr2) -> Seq (rewrite_ac vars expr1,rewrite_ac vars expr2)
   | Pair (expr1,expr2) -> Pair (rewrite_ac vars expr1,rewrite_ac vars expr2)

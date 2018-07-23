@@ -1,6 +1,6 @@
 %{
   open Syntax
-%} 
+%}
 
 
 %token EOF
@@ -32,7 +32,6 @@
 %left PLUS MINUS
 %left MULT DIV
 %nonassoc REF
-%nonassoc DEREF
 
 
 %start prog
@@ -46,15 +45,18 @@ prog: expr; EOF  { $1 }
 expr:
   | app_expr { $1 }
   | expr SEMICOLON expr         { Seq ($1, $3) }
-  | LPAR expr COMMA expr RPAR   { Pair ($2, $4) }
   | IF expr THEN expr ELSE expr        { If ($2, $4, $6) }
   | FUN typed_ident ARROW expr { Fun ($2, $4) }
-  | FIX typed_ident typed_ident ARROW expr { Fix ($2,$3, $5) }
-  | LET VAR list_ident EQ expr IN expr { Let ($2, List.fold_right (fun var expr -> Fun (var,expr)) $3 $5, $7) }
-  | LET REC VAR typed_ident list_ident EQ expr IN expr { Let ($3, Fix (($3,TUndef),$4, List.fold_right (fun var expr -> Fun (var,expr)) $5 $7), $9) }  
-  | REF expr         { Newref $2 }    
+  | FIX typed_ident typed_ident ARROW expr
+    { Fix ($2,$3, $5) }
+  | LET VAR list_ident EQ expr IN expr
+    { Let ($2, List.fold_left (fun expr var -> Fun (var,expr)) $5 $3, $7) }
+  | LET REC VAR typed_ident list_ident EQ expr IN expr
+    { Let ($3, Fix (($3,TUndef),$4, List.fold_left (fun expr var -> Fun (var,expr)) $7 $5), $9) }
+  | LET LPAR VAR COMMA VAR RPAR EQ expr IN expr
+    {LetPair ($3,$5,$8,$10)}
+  | REF expr         { Newref $2 }
   | expr ASSIGN expr { Assign ($1,$3) }
-  | DEREF expr       { Deref $2 }  
 (*  | MINUS expr          { UMinus (-$2) }  *)
   | expr PLUS expr     { Plus ($1, $3) }
   | expr MINUS expr    { Minus ($1, $3) }
@@ -62,11 +64,11 @@ expr:
   | expr DIV expr      { Div ($1, $3) }
   | NOT expr          { Not ($2) }
   | expr AND expr     { And ($1, $3) }
-  | expr OR expr      { Or ($1, $3) }   
+  | expr OR expr      { Or ($1, $3) }
   | expr EQ expr      { Equal ($1, $3) }
-  | expr NEQ expr     { NEqual ($1, $3) }  
+  | expr NEQ expr     { NEqual ($1, $3) }
   | expr LESS expr    { Less ($1, $3) }
-  | expr LESSEQ expr  { LessEq ($1, $3) }   
+  | expr LESSEQ expr  { LessEq ($1, $3) }
 
 app_expr:
   | simple_expr { $1 }
@@ -77,17 +79,19 @@ simple_expr:
   | UNIT            { Unit }
   | INT             { Int $1 }
   | TRUE            { Bool true }
-  | FALSE           { Bool false }    
+  | FALSE           { Bool false }
+  | LPAR expr COMMA expr RPAR   { Pair ($2, $4) }
+  | DEREF VAR       { Deref (Var $2) }
   | LPAR expr RPAR   { $2 }
 
 typed_ident:
   | UNIT { let var = fresh_evar () in (var,TUnit) }
   | VAR { ($1,TUndef) }
   | LPAR VAR COLON ty RPAR { ($2,$4) }
-  
+
 list_ident :
   |  { [] }
-  | list_ident typed_ident {$2::$1}  
+  | list_ident typed_ident {$2::$1}
 
 ty:
   | TUNIT        { TUnit }
@@ -95,7 +99,7 @@ ty:
   | TINT         { TInt }
   | REF ty      { TRef $2 }
   | ty ARROW ty { TArrow ($1, $3) }
-  | ty MULT ty   { TProd ($1, $3) }  
+  | ty MULT ty   { TProd ($1, $3) }
   | LPAR ty RPAR { $2 }
-  
-%%  
+
+%%

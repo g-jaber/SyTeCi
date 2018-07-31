@@ -2,43 +2,9 @@ open Pmap
 open Syntax
 open Logic
 open Wts
+open Smt
 
 type chc = (state*Syntax.exprML*Logic.arith_pred)
-
-type smt_decl =
-  | SMTVar of (Syntax.id * Syntax.typeML)
-  | SMTRel of (Syntax.id * Syntax.typeML list)
-
-let compare_smt_decl d1 d2 = match (d1,d2) with
-  | (SMTVar (x,_),SMTVar (y,_)) | (SMTRel (x,_),SMTRel (y,_)) ->
-    Syntax.compare_id x y
-  | (SMTVar _, SMTRel _) -> 1
-  | (SMTRel _, SMTVar _) -> -1
-
-module SMTEnv = Set.Make(
-  struct
-    let compare = compare_smt_decl
-    type t = smt_decl
-  end )
-
-let union_list = List.fold_left (SMTEnv.union) SMTEnv.empty
-
-let rec generate_lty = function
-  | 0 -> []
-  | n -> TInt::(generate_lty (n-1))
-
-let smt_decl_to_string = function
-  | SMTVar (x,ty) -> "(declare-var " ^ x ^ " " ^ (string_of_typeML ty) ^ ")"
-  | SMTRel (x,lty) ->
-    let string_lty = String.concat " " (List.map string_of_typeML lty) in
-    "(declare-rel " ^ x ^ " (" ^ string_lty ^ "))"
-
-let print_smt_env env =
-  SMTEnv.iter (fun x -> print_endline (smt_decl_to_string x)) env
-
-type tree =
-  | Empty
-  | Node of state * label option * state list * (tree list)
 
 let isOET = function
   | OET _ -> true
@@ -170,11 +136,11 @@ let rec visit_sr sr index1 index2 s b hinit1 hinit2 h1 h2 hfin1 hfin2 =
   let lestate = List.map get_state_of_trans letrans in
   let lestate = List.filter (goodOET sr) lestate in
   let loqstate = if List.exists isOQ ltrans then [s] else [] in
-  let (lchc,ltree,lenv) = split3 (List.map (visit_sr_aux sr index1 index2 s b hinit1 hinit2 h1 h2 hfin1 hfin2) ltrans) in
+  let (lchc,lcurrent,lenv) = split3 (List.map (visit_sr_aux sr index1 index2 s b hinit1 hinit2 h1 h2 hfin1 hfin2) ltrans) in
   let lchc = List.flatten lchc in
-  let ltree = remove_none ltree in
+  let lcurrent = remove_none lcurrent in
   let env = union_list lenv in
-  (lchc,ltree,loqstate@lestate,env)
+  (lchc,lcurrent,loqstate@lestate,env)
 
 and visit_sr_aux sr index1 index2 s b hinit1 hinit2 h1 h2 hfin1 hfin2 = function
   | PT (s',((_,_,_,_,_,_,PI) as label)) ->
@@ -247,19 +213,18 @@ let rec visit_sr_full sr =
     let n = (List.length hfin1) + (List.length hfin2) in
     let lty = generate_lty n in
     let rel_decl = SMTRel (predstring_of_state sr.init_state,TBool::lty) in
-    let init_rel_decl = SMTRel ("P",lty) in
+    let init_rel_name = "P" in
+    let init_rel_decl = SMTRel (init_rel_name,[]) in
     let (env_hinit1,hinit1) = freshen_heap h1 in
     let (env_hinit2,hinit2) = freshen_heap h2 in
-    let l1 = indexing_heap index1 hinit1 in
-    let l2 = indexing_heap index2 hinit2 in
-    let init_rel = ARel ("P",l1@l2) in
+    let init_rel = ARel (init_rel_name,[]) in
     let next_rel = apply_pred_rel index1 index2 (Bool false) [] [] hinit1 hinit2 sr.init_state in
     let init_chc = (-1,init_rel,next_rel) in
     let env' = union_list [env_hinit1; env_hinit2; env_hfin1; env_hfin2; env] in
     let env' = SMTEnv.add (SMTVar (idb,TBool)) env' in
     let env' = SMTEnv.add init_rel_decl env' in
     let env' = SMTEnv.add rel_decl env' in
-    (init_chc::chc::lchc,env')
+    (init_chc::chc::lchc,init_rel_name,env')
   | [] -> failwith "Error in the generation of the CHC: Empty STS. Please report."
   | _ -> failwith "Error in the generation of the CHC: Too many initial transitions.
        Please report."
@@ -276,7 +241,7 @@ let chc_to_string (_,rel,preds) =
 let print_lchc lchc =
   List.iter (fun chc -> print_endline (chc_to_string chc)) lchc
 
- let print_full_chc (lchc,env) =
+let print_full_chc (lchc,init_rel,env) =
    print_smt_env env;
    print_lchc_smtlib lchc;
-   print_endline "(query P :print-certificate true)"
+   print_endline ("(query "^ init_rel ^ ":print-certificate true)")

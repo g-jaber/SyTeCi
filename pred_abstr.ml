@@ -61,7 +61,8 @@ let rec generate_pred_vals = function
 
 let check_trans (ps1,ps2,list_preds,_) =
 (*  Debug.print_debug ("Trying to build a transition from " ^ (string_of_pstate ps1) ^ " to " ^ (string_of_pstate ps2) ^ ".");*)
-  List.for_all (fun x -> x) (List.map (fun (preds,env) -> (Logic_to_smt.check_sat env preds)) list_preds)
+  List.for_all (fun x -> x)
+    (List.map (fun (preds,env) -> (Logic_to_z3.check_sat env preds)) list_preds)
 
 let generate_pstate_list s pred_vals =
   List.map (fun pred_val -> (s,pred_val)) pred_vals

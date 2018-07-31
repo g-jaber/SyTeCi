@@ -293,7 +293,7 @@ let rec build_tc_rule asym_unfold flag hist sequent =
            let tag = select_tag funct_var_ctx fexpr1 fexpr2 in
            let skor' = get_skor_from_tag (ty,funct_var_ctx,fexpr1,fexpr2) tag in
            let sequent' = new_sequent sequent vars ~arith_ctx:preds skor' in
-           begin match (tag,Logic_to_smt.check_sat (vars@sequent.ground_var_ctx)  (preds@sequent.arith_ctx)) with
+           begin match (tag,Logic_to_z3.check_sat (vars@sequent.ground_var_ctx)  (preds@sequent.arith_ctx)) with
              | (_,false) -> Continue ((tag,heapPre1,heapPre2,heapPost1,heapPost2),Stop sequent')
              | (Wrong,_) -> Continue ((tag,heapPre1,heapPre2,heapPost1,heapPost2),RuleSwrong sequent')
              | (_,_) ->

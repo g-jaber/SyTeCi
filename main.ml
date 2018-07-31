@@ -77,6 +77,7 @@ let () =
             print_endline("Constrained Horn Clause:");
             let full_chc = Chc.visit_sr_full sr' in
             Chc.print_full_chc full_chc;
+            print_endline (Logic_to_z3.check_sat_chc full_chc);
           end;
           if !pred_abstr then begin
             print_endline("Predicate Abstraction:");

@@ -272,7 +272,8 @@ let build_pintern_trans sequent ((sr1,_,_,_,_) as esr1) ((sr2,_,_,preds,_) as es
   let full_preds = simplify_arith_pred (AAnd (preds@preds')) in
   let neg_preds = simplify_arith_pred (negate_arith_pred (AAnd preds)) in
   let full_neg_preds = simplify_arith_pred (AAnd (neg_preds::preds')) in
-  match (Logic_to_smt.check_sat sequent'.ground_var_ctx [full_preds],Logic_to_smt.check_sat sequent'.ground_var_ctx [full_neg_preds]) with
+  match (Logic_to_z3.check_sat sequent'.ground_var_ctx [full_preds],
+         Logic_to_z3.check_sat sequent'.ground_var_ctx [full_neg_preds]) with
     | (false,false) -> esr1
     | (false,true) -> add_incons_trans (hpre1,hpre2,hpost1,hpost2,preds,preds',sequent'.ground_var_ctx,polarity) esr1
     | (_,b) ->
@@ -282,7 +283,9 @@ let build_pintern_trans sequent ((sr1,_,_,_,_) as esr1) ((sr2,_,_,preds,_) as es
       let isWB' = if (tag = WB) then States.add (sr2.init_state) isWB else isWB in
       sr.trans_fun <- add_trans sr.trans_fun sr.init_state trans;
       let esr = (sr,isExt',isWB',[],back_trans) in
-      if not b then esr else add_incons_trans (hpre1,hpre2,hpost1,hpost2,preds,preds',sequent'.ground_var_ctx,polarity) esr
+      if not b then esr
+      else add_incons_trans (hpre1,hpre2,hpost1,hpost2,preds,preds',
+                             sequent'.ground_var_ctx,polarity) esr
 
 let build_esr_ruleP sequent esrs_a =
   let sr = singleton_sr () in

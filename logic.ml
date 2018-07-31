@@ -120,18 +120,6 @@ let rec string_of_arith_pred = function
   | AGreatEq (e1,e2) -> (string_of_exprML e1) ^ " ≥ " ^ (string_of_exprML e2)
   | ARel (f,lexpr) -> f ^ "(" ^ (String.concat "," (List.map string_of_exprML lexpr)) ^ ")"
 
-let rec string_of_arith_pred_smtlib = function
-  | ATrue -> "true"
-  | AFalse -> "false"
-  | AAnd preds -> "(and " ^ string_of_conj " " string_of_arith_pred_smtlib preds ^ ")"
-  | AOr preds ->  "(or " ^ string_of_conj " " string_of_arith_pred_smtlib preds ^ ")"
-  | AEqual (e1,e2) -> "(= " ^ (string_of_exprML_smtlib e1) ^ " " ^ (string_of_exprML_smtlib e2) ^")"
-  | ANEqual (e1,e2) -> "(not (= " ^ (string_of_exprML_smtlib e1) ^ " " ^ (string_of_exprML_smtlib e2) ^ "))"
-  | ALess (e1,e2) -> "(< " ^ (string_of_exprML_smtlib e1) ^ " " ^ (string_of_exprML_smtlib e2) ^ ")"
-  | ALessEq (e1,e2) -> "(<= " ^ (string_of_exprML_smtlib e1) ^ " " ^ (string_of_exprML_smtlib e2) ^ ")"
-  | AGreat (e1,e2) -> "(>" ^ (string_of_exprML_smtlib e1) ^ " > " ^ (string_of_exprML_smtlib e2) ^ ")"
-  | AGreatEq (e1,e2) -> "(>= " ^ (string_of_exprML_smtlib e1) ^ " ≥ " ^ (string_of_exprML_smtlib e2) ^ ")"
-  | ARel (f,lexpr) -> "(" ^ f ^ " " ^ (String.concat " " (List.map string_of_exprML_smtlib lexpr)) ^ ")"
 
 let rec full_arith_simplification_aux = function
   | [] -> []

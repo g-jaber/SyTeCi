@@ -247,27 +247,6 @@ let rec string_of_exprML = function
   | Assign (e1,e2) -> (string_of_exprML e1) ^ " := " ^ (string_of_exprML e2)
   | Hole -> "•"
 
-  let rec string_of_exprML_smtlib = function
-    | Var x -> x
-    | Loc l -> "l" ^ (string_of_int l)
-    | Int n -> string_of_int n
-    | Bool true -> "true"
-    | Bool false -> "false"
-    | Plus (e1,e2) -> "(+ " ^ (string_of_exprML e1) ^ " " ^ (string_of_exprML e2) ^ ")"
-    | Minus(e1,e2) -> "(- " ^ (string_of_exprML e1) ^ " " ^ (string_of_exprML e2) ^ ")"
-    | Mult (e1,e2) -> "(* " ^ (string_of_exprML e1) ^ " " ^ (string_of_exprML e2) ^ ")"
-    | Div (e1,e2) -> "(/ " ^ (string_of_exprML e1) ^ " " ^ (string_of_exprML e2) ^ ")"
-    | Not e -> "(not " ^ (string_of_exprML e) ^")"
-    | And (e1,e2) -> "(and " ^ (string_of_exprML e1) ^ " " ^ (string_of_exprML e2) ^ ")"
-    | Or (e1,e2) -> "(or " ^ (string_of_exprML e1) ^ " " ^ (string_of_exprML e2) ^ ")"
-    | Equal (e1,e2) -> "(= " ^ (string_of_exprML e1) ^ " " ^ (string_of_exprML e2) ^ ")"
-    | NEqual (e1,e2) -> "(not (= " ^ (string_of_exprML e1) ^ " " ^ (string_of_exprML e2) ^ ")"
-    | Less (e1,e2) -> "(< " ^ (string_of_exprML e1) ^ " " ^ (string_of_exprML e2) ^ ")"
-    | LessEq (e1,e2) -> "(<= " ^ (string_of_exprML e1) ^ " " ^ (string_of_exprML e2) ^ ")"
-    | Great (e1,e2) -> "(> " ^ (string_of_exprML e1) ^  " " ^ (string_of_exprML e2) ^ ")"
-    | GreatEq (e1,e2) -> "(>= " ^ (string_of_exprML e1) ^ " " ^ (string_of_exprML e2) ^ ")"
-    | _ -> failwith "Error: Cannot print a non-ground term in SMT-LIB format. Please Report."
-
 (* Auxiliary functions *)
 
 let get_consfun_from_binexpr = function

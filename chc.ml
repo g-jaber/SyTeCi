@@ -230,18 +230,20 @@ let rec visit_sr_full sr =
        Please report."
 
 let chc_to_string_smtlib (_,rel,preds) =
-  "(rule (=> " ^ string_of_arith_pred_smtlib (simplify_arith_pred preds) ^ " " ^ (string_of_arith_pred_smtlib rel) ^ "))"
+  "(rule (=> " ^ string_of_arith_pred_smtlib (simplify_arith_pred preds) ^ " "
+  ^ (string_of_arith_pred_smtlib rel) ^ "))"
 
-let print_lchc_smtlib lchc =
-  List.iter (fun chc -> print_endline (chc_to_string_smtlib chc)) lchc
+let print_lchc_smtlib file lchc =
+  List.iter (fun chc -> Printer.print_to_file file (chc_to_string_smtlib chc)) lchc
 
 let chc_to_string (_,rel,preds) =
   (string_of_arith_pred rel) ^ "<-" ^ string_of_arith_pred (simplify_arith_pred preds)
 
-let print_lchc lchc =
-  List.iter (fun chc -> print_endline (chc_to_string chc)) lchc
+let print_lchc file lchc =
+  List.iter (fun chc -> Printer.print_to_file file (chc_to_string chc)) lchc
 
-let print_full_chc (lchc,init_rel,env) =
-   print_smt_env env;
-   print_lchc_smtlib lchc;
-   print_endline ("(query "^ init_rel ^ ":print-certificate true)")
+let print_full_chc file (lchc,init_rel,env) =
+   Printer.print_to_file file ("Constrained Horn Clause:");  
+   print_smt_env file env;
+   print_lchc_smtlib file lchc;
+   Printer.print_to_file file ("(query "^ init_rel ^ ":print-certificate true)")

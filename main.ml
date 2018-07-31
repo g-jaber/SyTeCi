@@ -1,87 +1,96 @@
 open Arg
 open Lexing
 
-let get_term poly filename =
- let inBuffer = open_in filename in
- let lineBuffer = Lexing.from_channel inBuffer in
- try let expr = Parser.prog Lexer.token lineBuffer in
-     Debug.print_debug (Syntax.string_of_exprML expr);
-     let ty = Type_checker.typing_full poly expr in
-     Debug.print_debug (Syntax.string_of_typeML ty);
-     (expr,ty)
- with
-   | Lexer.SyntaxError msg -> failwith ("Parsing Error :" ^ msg)
-   | Parser.Error -> failwith ("Syntax Error at position "^ (string_of_int (Lexing.lexeme_start lineBuffer)))
-   | Type_checker.TypingError msg -> failwith ("Type error :" ^ msg)
+let get_term nbprog poly filename =
+  let inBuffer = open_in filename in
+  let lineBuffer = Lexing.from_channel inBuffer in
+  try let expr = Parser.prog Lexer.token lineBuffer in
+    Debug.print_debug (Syntax.string_of_exprML expr);
+    let ty = Type_checker.typing_full poly expr in
+    Debug.print_debug (Syntax.string_of_typeML ty);
+    (expr,ty)
+  with
+  | Lexer.SyntaxError msg -> failwith ("Parsing Error in the " ^ nbprog
+                                       ^ " program:" ^ msg)
+  | Parser.Error ->
+    failwith ("Syntax Error in the " ^ nbprog ^ " program:"
+              ^ " at position "
+              ^ (string_of_int (Lexing.lexeme_start lineBuffer)))
+  | Type_checker.TypingError msg -> failwith ("Type error :" ^ msg)
 
 let () =
-        let number_filename = ref 0 in
-        let filename1 = ref "" in
-        let filename2 = ref "" in
-        let si_j = ref 0 in
-        let si_k = ref 0 in
-        let bounded_checking = ref false in
-        let asym_unfold = ref false in
-        let compute_char_form = ref false in
-        let compute_sts = ref true in
-        let print_dg = ref false in
-        let pred_abstr = ref false in
-        let chc = ref false in
-        let poly = ref false in
-        let speclist =
-          [("-cf",Set compute_char_form,"Compute the temporal characteristic formula");
-           ("-dg",Set print_dg,"Print the computed derivation graph");
-           ("-debug",Set Debug.debug_mode,"Debug mode");
-           ("-j",Set_int si_j,"Fixe the left step-index to n in order to control unfolding of recursive calls");
-           ("-k",Set_int si_k,"Fixe the right step-index to n in order to control unfolding of recursive calls");
-           ("-bc",Set bounded_checking, "Enable bounded checking");
-           ("-au",Set asym_unfold, "Enable asymmetric unfolding of recursive calls");
-           ("-nosts",Clear compute_sts, "Do not compute the STS");
-           ("-pa",Set pred_abstr,"Perform predicate abstraction analysis");
-           ("-chc", Set chc,"Translate the reachability of inconsistent states as a constrained Horn clause");
-           ("-poly", Set poly,"Allow polymorphic reasoning (Experimental)")
-          ] in
-        let usage_msg = "Usage: ./syteci filename1 filename2 [options] where the options are:" in
-        let get_filename str =
-          match !number_filename with
-            | 0 -> filename1 := str; number_filename := !number_filename+1;
-            | 1 -> filename2 := str; number_filename := !number_filename+1;
-            | _ -> failwith ("Error: too many filenames have been provided. \n"^ usage_msg);
-        in
-        let check_number_filenames () =
-          if !number_filename < 2 then failwith ("Error: two filenames containing the programs to be compared should have been provided. \n"^ usage_msg);
-        in
-        parse speclist get_filename usage_msg;
-        check_number_filenames ();
-        let (expr1,ty1) = get_term !poly !filename1 in
-        let (expr2,ty2) = get_term !poly !filename2 in
-        if ty1 <> ty2 then failwith ("Error: the first program is of type "
-                                     ^ (Syntax.string_of_typeML ty1)
-                                     ^ " while the second program is of type "
-                                     ^ (Syntax.string_of_typeML ty2) ^ ".");
-        let tc = Tcstruct.build_tc !asym_unfold ty1 expr1 expr2 !si_j !si_k  in
-        if !print_dg then begin
-           print_endline ("Inference Graph:");
-           print_endline (Tcstruct.string_of_tc tc)
-        end;
-        if !compute_char_form then begin
-          let temp_form = Logic.iter 10 Templogic.simplify_temp_formula (Templogic.tformula_of_tc !bounded_checking tc) in
-          print_endline ("Temporal Formula:");
-          print_endline (Templogic.string_of_temp_formula temp_form)
-        end;
-        if !compute_sts then begin
-          let sr = Wts.build_sr !bounded_checking tc in
-          let sr' = Wts_closure.sr_closure sr in
-          Wts_to_dot.dot_from_sr sr';
-          if !chc then begin
-            print_endline("Constrained Horn Clause:");
-            let full_chc = Chc.visit_sr_full sr' in
-            Chc.print_full_chc full_chc;
-            print_endline (Logic_to_z3.check_sat_chc full_chc);
-          end;
-          if !pred_abstr then begin
-            print_endline("Predicate Abstraction:");
-            let push_sys = Pred_abstr.wts_to_ps sr' in
-            Pushdown_system.dot_from_push_sys push_sys
-          end
-        end
+  let number_filename = ref 0 in
+  let filename1 = ref "" in
+  let filename2 = ref "" in
+  let si_j = ref 0 in
+  let si_k = ref 0 in
+  let bounded_checking = ref false in
+  let asym_unfold = ref false in
+  let print_cf = ref false in
+  let print_sts = ref false in
+  let file_sts = ref "" in
+  let print_dg = ref false in
+  let pred_abstr = ref false in
+  let print_chc = ref false in
+  let file_chc = ref "" in
+  let poly = ref false in
+  let speclist =
+    [("-cf",Set print_cf,"Print the temporal characteristic formula");
+     ("-dg",Set print_dg,"Print the derivation graph");
+     ("-debug",Set Debug.debug_mode,"Debug mode");
+     ("-j",Set_int si_j,"Fix the left step-index to n in order to control unfolding of recursive calls");
+     ("-k",Set_int si_k,"Fix the right step-index to n in order to control unfolding of recursive calls");
+     ("-bc",Set bounded_checking, "Enable bounded checking");
+     ("-au",Set asym_unfold, "Enable asymmetric unfolding of recursive calls");
+     ("-sts",Set print_sts, "Print the Symbolic Transition System");
+     ("-file-sts",Set_string file_sts, "Specify the file where to print the STS");
+     ("-pa",Set pred_abstr,"Perform predicate abstraction analysis");
+     ("-chc", Set print_chc,"Print the translation of the reachability of inconsistent states as a Constrained Horn Clause");
+     ("-file-chc",Set_string file_chc, "Specify the file where to print the Constrained Horn Clause");
+     ("-poly", Set poly,"Allow polymorphic reasoning (Experimental)")
+    ] in
+  let usage_msg = "Usage: ./syteci filename1 filename2 [options] where the options are:" in
+  let get_filename str =
+    match !number_filename with
+    | 0 -> filename1 := str; number_filename := !number_filename+1;
+    | 1 -> filename2 := str; number_filename := !number_filename+1;
+    | _ -> failwith ("Error: too many filenames have been provided. \n"^ usage_msg);
+  in
+  let check_number_filenames () =
+    if !number_filename < 2 then failwith ("Error: two filenames containing the programs to be compared should have been provided. \n"^ usage_msg);
+  in
+  parse speclist get_filename usage_msg;
+  check_number_filenames ();
+  let (expr1,ty1) = get_term "first" !poly !filename1 in
+  let (expr2,ty2) = get_term "second" !poly !filename2 in
+  if ty1 <> ty2 then failwith ("Error: the first program is of type "
+                               ^ (Syntax.string_of_typeML ty1)
+                               ^ " while the second program is of type "
+                               ^ (Syntax.string_of_typeML ty2) ^ ".");
+  let tc = Tcstruct.build_tc !asym_unfold ty1 expr1 expr2 !si_j !si_k  in
+  if !print_dg then begin
+    print_endline ("Inference Graph:");
+    print_endline (Tcstruct.string_of_tc tc)
+  end;
+  if !print_cf then begin
+    let temp_form = Logic.iter 10 Templogic.simplify_temp_formula (Templogic.tformula_of_tc !bounded_checking tc) in
+    print_endline ("Temporal Formula:");
+    print_endline (Templogic.string_of_temp_formula temp_form)
+  end;
+  let sr = Wts.build_sr !bounded_checking tc in
+  let sr' = Wts_closure.sr_closure sr in
+  if !print_sts then begin
+    Printer.refresh_file !file_sts;
+    Wts_to_dot.dot_from_sr !file_sts sr';
+  end;
+  let full_chc = Chc.visit_sr_full sr' in
+  if !print_chc then begin
+    Printer.refresh_file !file_chc;
+    Chc.print_full_chc !file_chc full_chc;
+  end;
+  print_endline (Logic_to_z3.check_sat_chc full_chc);
+  if !pred_abstr then begin
+    print_endline("Predicate Abstraction:");
+    let push_sys = Pred_abstr.wts_to_ps sr' in
+    Pushdown_system.dot_from_push_sys push_sys
+  end

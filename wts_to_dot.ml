@@ -29,12 +29,12 @@ let degde_from_atomic_transition (s1,s2) =
   n1 ^ " -> " ^ n2 ^ ";"
 
 
-let dot_from_sr sr =
-  print_endline "//DOT";
-  print_endline "digraph R {";
-  States.iter (fun x -> print_endline ((dlabel_from_state sr x) ^ " ")) sr.states;
-  print_newline ();
-  print_endline ("//Transitions: ");
-  List.iter (fun (s1,l) -> List.iter (fun trans -> print_endline (dedge_from_transition s1 trans)) l)
+let dot_from_sr file sr =
+  Printer.print_to_file file "//DOT";
+  Printer.print_to_file file "digraph R {";
+  States.iter (fun x -> Printer.print_to_file file ((dlabel_from_state sr x) ^ " ")) sr.states;
+  Printer.print_to_file file "\n";
+  Printer.print_to_file file ("//Transitions: ");
+  List.iter (fun (s1,l) -> List.iter (fun trans -> Printer.print_to_file file (dedge_from_transition s1 trans)) l)
     (StateMap.bindings sr.trans_fun);
-  print_endline "}";
+  Printer.print_to_file file "}";

@@ -209,6 +209,9 @@ let rec subst expr value value' = match expr with
   | Deref expr' -> Deref (subst expr' value value')
   | Assign (expr1,expr2) -> Assign (subst expr1 value value', subst expr2 value value')
 
+let subst_list expr lsubst =
+  List.fold_left (fun expr (var,value) -> subst expr (Var var) value) expr lsubst
+
 let string_of_typed_var = function
   | (x,TUndef) -> x
   | (x,ty) -> "(" ^ x ^ ":" ^ (string_of_typeML ty) ^ ")"
@@ -344,6 +347,11 @@ let extract_call expr =
   match expr' with
   | App (Var f,expr'') -> (f,expr'',ctx)
   | _ -> failwith ("Error : " ^ (string_of_exprML expr') ^ " is not a call to a function")
+
+let extract_body = function
+  | Fun ((var,_),expr) -> (var,(expr,[]))
+  | Fix ((idfun,_),(var,_),expr) as fullexpr -> (var,(expr,[idfun,fullexpr]))
+  | expr -> failwith ("Error: " ^ (string_of_exprML expr) ^ " is not a function. Please report.")
 
 let fill_hole ctx expr = subst ctx Hole expr
 

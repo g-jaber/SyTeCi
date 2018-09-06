@@ -80,29 +80,39 @@ let rec tformula_of_tc bc = function
   | Stop _ | RuleSwrong _ -> TPred AFalse (*TPred (negate_arith_pred (AAnd sequent.arith_ctx))*)
   | LOut _ -> if bc then TPred ATrue else TPred AFalse
   | ROut _ -> TPred AFalse
-  | RuleSext ((tc1,tc2),_) | RuleVProd ((tc1,tc2),_) -> TAnd [(tformula_of_tc bc tc1); (tformula_of_tc bc tc2)]
-  | Unfold (tc,_) | LUnfold (tc,_) | RUnfold (tc,_)  | Rewrite (tc,_) -> tformula_of_tc bc tc
+  | RuleSext ((tc1,tc2),_) | RuleVProd ((tc1,tc2),_) ->
+    TAnd [(tformula_of_tc bc tc1); (tformula_of_tc bc tc2)]
+  | Unfold (tc,_) | LUnfold (tc,_) | RUnfold (tc,_)  | Rewrite (tc,_) ->
+    tformula_of_tc bc tc
+  | RuleInit (tcs,sequent) ->
+    let aux new_tc =
+      let (_,vars) = newelem_of_sequents sequent (get_root new_tc) in
+      TForAll (vars, tformula_of_tc bc new_tc)
+    in TAnd (List.map aux tcs)
   | RuleK (tcs,sequent) ->
-      let aux new_tc =
-        let (_,vars) = newelem_of_sequents sequent (get_root new_tc) in
-        Mod (SquarePub, TForAll (vars, tformula_of_tc bc new_tc))
-      in TAnd (List.map aux tcs)
+    let aux new_tc =
+      let (_,vars) = newelem_of_sequents sequent (get_root new_tc) in
+      Mod (SquarePub, TForAll (vars, tformula_of_tc bc new_tc))
+    in TAnd (List.map aux tcs)
   | RuleV (tcs,sequent) ->
-        let aux new_tc =
-        let (_,vars) = newelem_of_sequents sequent (get_root new_tc) in
-        Mod (Square, TForAll (vars, tformula_of_tc bc new_tc))
-      in TAnd (List.map aux tcs)
+    let aux new_tc =
+      let (_,vars) = newelem_of_sequents sequent (get_root new_tc) in
+      Mod (Square, TForAll (vars, tformula_of_tc bc new_tc))
+    in TAnd (List.map aux tcs)
   | RuleE (tcs,sequent) ->
-        let aux (annot,tc') =
-          let (preds,vars) = newelem_of_sequents sequent (get_root tc') in
-          begin match annot with
-            | (Wrong,_,_,_,_) -> TForAll (vars, TImpl (preds, tformula_of_tc bc tc'))
-            | _ -> TForAll (vars, TImpl (preds, Mod (modality_from_annot annot,  tformula_of_tc bc tc')))
-          end
-        in TAnd (List.map aux tcs)
+    let aux (annot,tc') =
+      let (preds,vars) = newelem_of_sequents sequent (get_root tc') in
+      begin match annot with
+        | (Wrong,_,_,_,_) ->
+          TForAll (vars, TImpl (preds, tformula_of_tc bc tc'))
+        | _ ->
+          TForAll (vars, TImpl (preds, Mod (modality_from_annot annot,
+                                            tformula_of_tc bc tc')))
+      end
+    in TAnd (List.map aux tcs)
   | Circ (rho,backsequent,_) ->
-       let svar = get_svar backsequent.id in
-       SVar (svar, rho)
+    let svar = get_svar backsequent.id in
+    SVar (svar, rho)
   | Gen (rho,tc,_) ->
-       let svar = get_svar ((get_root tc).id) in
-       GFix (svar, rho, tformula_of_tc bc tc)
+    let svar = get_svar ((get_root tc).id) in
+    GFix (svar, rho, tformula_of_tc bc tc)

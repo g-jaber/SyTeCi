@@ -6,6 +6,10 @@ open Smt
 
 type chc = (state*Syntax.exprML*Logic.arith_pred)
 
+let isPBT = function
+  | PBT _ -> true
+  | _ -> false
+
 let isOET = function
   | OET _ -> true
   | _ -> false
@@ -20,12 +24,12 @@ let goodOET sr s =
 
 let isIncons sr s = States.mem s sr.incons_states
 
-let rec freshen_heap = function
+(* let rec freshen_heap = function
   | [] -> (SMTEnv.empty,[])
   | (l,_)::heap ->
     let x = fresh_lvar () in
     let (env,newheap) = freshen_heap heap in
-    (SMTEnv.add (SMTVar (x,TInt)) env,(l,Var x)::newheap)
+    (SMTEnv.add (SMTVar (x,TInt)) env,(l,Var x)::newheap) *)
 
 let rec equate_symb_heap h = function
   | [] -> []
@@ -40,42 +44,64 @@ let rec complete_heap hpre hpost env = function
      or equal to the one of h *)
   | [] -> (hpre,hpost,env)
   | (x,_)::h ->
-    begin match lookup_pmap x hpre with
+    begin match lookup_pmap x hpost with
       | Some _ -> complete_heap hpre hpost env h
       | None ->
         let y = fresh_lvar () in
+        Debug.print_debug ("Completing the heap with " ^ x ^ " -> " ^ y) ;
         complete_heap ((x,Var y)::hpre) ((x,Var y)::hpost)
           (SMTEnv.add (SMTVar (y,TInt)) env) h
     end
 
-module IndexLoc = Map.Make(
+module IndexVar = Map.Make(
   struct
     let compare = Syntax.compare_id
     type t = Syntax.id
   end )
 
-let generate_index_loc heap =
+let generate_index pmap =
   let rec aux n result = function
     | [] -> result
     | (x,v)::h ->
       Debug.print_debug ("Adding " ^ x ^ " to the indexing");
-      let result' = IndexLoc.add x n result in
+      let result' = IndexVar.add x n result in
       aux (n+1) result' h
-  in aux 0 IndexLoc.empty heap
+  in aux 0 IndexVar.empty pmap
 
-let predstring_of_state s = "P"^(string_of_state s)
-
-let indexing_heap index heap =
-  let n = List.length heap in
-  let tab = Array.make n (Var "plop") in
+let indexing_pmap index pmap =
+  let n = List.length pmap in
+  Debug.print_debug ("Size of index:" ^ (string_of_int (IndexVar.cardinal index))
+                     ^ " and size of heap:" ^ (string_of_int n));
+  let tab = Array.make n None in
   let rec aux = function
     | [] -> ()
-    | (x,v)::heap ->
+    | (x,v)::pmap ->
       Debug.print_debug ("Looking for " ^ x ^ " in the indexing");
-      let i = IndexLoc.find x index in
-      tab.(i) <- v;
-      aux heap
-in aux heap; Array.to_list tab
+      let i = IndexVar.find x index in
+      tab.(i) <- Some v;
+      aux pmap
+  in
+  let rec aux2 i =
+    if i < n then begin
+      match tab.(i) with
+      | None -> failwith ("Error: Trying to access the index " ^ (string_of_int i)
+                          ^ " which does not exists. Please report.")
+      | Some v -> v::(aux2 (i+1))
+    end else [] in
+  aux pmap; aux2 0
+
+let generate_heap_from_index index =
+  let domain = List.map fst (IndexVar.bindings index) in
+  let rec aux = function
+    | [] -> (SMTEnv.empty,[])
+    | l::dom ->
+      let x = fresh_lvar () in
+      let (env,newheap) = aux dom in
+      (SMTEnv.add (SMTVar (x,TInt)) env,(l,Var x)::newheap) in
+  aux domain
+
+
+let predstring_of_state s = "P"^(string_of_state s)
 
 (* let apply_pred_rel' index1 index2 b heapPre1 heapPre2 heapPost1 heapPost2 s =
   let p = predstring_of_state s in
@@ -85,13 +111,31 @@ in aux heap; Array.to_list tab
   let l4 = Pmap.codom_of_pmap heapPost2 in
   ARel (p,b::l1@l2@l3@l4) *)
 
-let apply_pred_rel index1 index2 b heapPre1 heapPre2 heapPost1 heapPost2 s =
+(* let apply_pred_rel index1 index2 b heapPre1 heapPre2 heapPost1 heapPost2 s =
   let p = predstring_of_state s in
-  let l1 = indexing_heap index1 heapPre1 in
-  let l2 = indexing_heap index2 heapPre2 in
-  let l3 = indexing_heap index1 heapPost1 in
-  let l4 = indexing_heap index2 heapPost2 in
-  ARel (p,b::l1@l2@l3@l4)
+  let l1 = indexing_pmap index1 heapPre1 in
+  let l2 = indexing_pmap index2 heapPre2 in
+  let l3 = indexing_pmap index1 heapPost1 in
+  let l4 = indexing_pmap index2 heapPost2 in
+  ARel (p,b::l1@l2@l3@l4) *)
+
+let apply_pred_rel index1 index2 b heapPre1 heapPre2 heapPost1 heapPost2 ?gsubst s =
+   let p = predstring_of_state s in
+   let l1 = indexing_pmap index1 heapPre1 in
+   let l2 = indexing_pmap index2 heapPre2 in
+   let l3 = indexing_pmap index1 heapPost1 in
+   let l4 = indexing_pmap index2 heapPost2 in
+   match gsubst with
+   | None -> ARel (p,b::l1@l2@l3@l4)
+   | Some gsubst ->
+     let lgsubst = Pmap.codom_of_pmap gsubst in
+     ARel (p,b::lgsubst@l1@l2@l3@l4)
+
+(* let apply_pred_rel index b pmapPre pmapPost s =
+  let p = predstring_of_state s in
+  let lpre = indexing_pmap index pmapPre in
+  let lpost = indexing_pmap index pmapPost in
+  ARel (p,b::lpre@lpost) *)
 
 (* let generate_incons_pred sr s b = AEqual (b,(Bool (isConsis sr s))) *)
 
@@ -100,14 +144,23 @@ let generate_env_from_ctx ctx =
   let env_as_list = List.map (fun x -> (SMTVar x)) ctx' in
   SMTEnv.of_list env_as_list
 
-let generate_pred_from_trans index1 index2 b isincons h1 h2 h1' h2' lnextstate (heapPre1,heapPre2,heapPost1,heapPost2,preds,var_ctx,polarity) =
+let generate_pred_from_trans index1 index2 b isincons h1 h2 h1' h2' lnextstate
+    (heapPre1,heapPre2,heapPost1,heapPost2,preds,var_ctx,polarity) =
+  Debug.print_debug ("Generate Pred with " ^ (string_of_symb_heap h1) ^ " and "
+                     ^ (string_of_symb_heap heapPre1) ^ " and "
+                     ^ (string_of_symb_heap heapPost1) ^ " and "
+                     ^ (string_of_symb_heap h2) ^ " and "
+                     ^ (string_of_symb_heap heapPre2) ^ " and "
+                     ^ (string_of_symb_heap heapPost2));
   let (heapPre1,heapPost1,envh1) = complete_heap heapPre1 heapPost1 SMTEnv.empty h1 in
   let (heapPre2,heapPost2,envh2) = complete_heap heapPre2 heapPost2 SMTEnv.empty h2 in
   let predPre1 = equate_symb_heap h1 heapPre1 in
   let predPre2 = equate_symb_heap h2 heapPre2 in
   let predPost1 = equate_symb_heap h1' heapPost1 in
   let predPost2 = equate_symb_heap h2' heapPost2 in
-  let nextpred = List.map (apply_pred_rel index1 index2 b heapPost1 heapPost2 h1' h2') lnextstate in
+  let nextpred = List.map
+      (apply_pred_rel index1 index2 b heapPost1 heapPost2 h1' h2')
+      lnextstate in
   let maycons = match (polarity,isincons) with
     | (PQ,_) | (PI,_) -> []
     | (PA,false) -> [AEqual (b,(Bool true))]
@@ -130,104 +183,157 @@ let rec split3 = function
     let (al,bl,cl) = split3 tl in
     (a::al,b::bl,c::cl)
 
-let rec visit_sr sr index1 index2 s b hinit1 hinit2 h1 h2 hfin1 hfin2 =
+let rec visit_sr sr index1 index2 s b gsubst hinit1 hinit2 h1 h2 hfin1 hfin2 =
   let ltrans = get_ltrans sr.trans_fun s in
-  let (letrans,ltrans) = List.partition isOET ltrans in
-  let lestate = List.map get_state_of_trans letrans in
-  let lestate = List.filter (goodOET sr) lestate in
+  let (loetrans,ltrans) = List.partition isOET ltrans in
+  let loestate = List.map get_state_of_trans loetrans in
+  let loestate = List.filter (goodOET sr) loestate in
+  (* let (lpbtrans,ltrans) = List.partition isPBT ltrans in *)
   let loqstate = if List.exists isOQ ltrans then [s] else [] in
-  let (lchc,lcurrent,lenv) = split3 (List.map (visit_sr_aux sr index1 index2 s b hinit1 hinit2 h1 h2 hfin1 hfin2) ltrans) in
+  let (lchc,lcurrent,lenv) = split3
+      (List.map (visit_sr_aux sr index1 index2 s b gsubst hinit1 hinit2
+                   h1 h2 hfin1 hfin2) ltrans) in
   let lchc = List.flatten lchc in
   let lcurrent = remove_none lcurrent in
   let env = union_list lenv in
-  (lchc,lcurrent,loqstate@lestate,env)
+  (lchc,lcurrent,loqstate@loestate,[],env)
 
-and visit_sr_aux sr index1 index2 s b hinit1 hinit2 h1 h2 hfin1 hfin2 = function
+and visit_sr_aux sr index1 index2 s b gsubst hinit1 hinit2 h1 h2 hfin1 hfin2 = function
   | PT (s',((_,_,_,_,_,_,PI) as label)) ->
-    let (envh1,h1') = freshen_heap hfin1 in
-    let (envh2,h2') = freshen_heap hfin2 in
-    let (lchc,current,lnextstate,env) = visit_sr sr index1 index2 s' b hinit1 hinit2 h1' h2' hfin1 hfin2 in
-    let (hpred,envp) = generate_pred_from_trans index1 index2 (Bool true) (isIncons sr s') h1 h2 h1' h2' lnextstate label in
+    let (envh1,h1') = generate_heap_from_index index1 in
+    let (envh2,h2') = generate_heap_from_index index2 in
+    let (lchc,current,_,lpbtrans,env) = visit_sr sr index1 index2 s' b gsubst
+        hinit1 hinit2 h1' h2' hfin1 hfin2 in
+    let (hpred,envp) = generate_pred_from_trans index1 index2 b
+        (isIncons sr s') h1 h2 h1' h2' [] label in
     let pred = simplify_arith_pred (AAnd (hpred@[AOr current])) in
     let env' = union_list [envh1;envh2;envp;env] in
     (lchc,Some pred,env')
   | PT (s',((_,_,_,_,_,_,PQ) as label)) ->
-    let (envh1,h1') = freshen_heap hfin1 in
-    let (envh2,h2') = freshen_heap hfin2 in
-    let (lchc,current,lnextstate,env) = visit_sr sr index1 index2 s' b hinit1 hinit2 h1' h2' hfin1 hfin2 in
-    let (hpred,envp) = generate_pred_from_trans index1 index2 (Bool true) (isIncons sr s') h1 h2 h1' h2' lnextstate label in
+    Debug.print_debug "PQ";
+    let (envh1,h1') = generate_heap_from_index index1 in
+    let (envh2,h2') = generate_heap_from_index index2 in
+    let (lchc,current,lnextstate,_,env) = visit_sr sr index1 index2 s' b gsubst
+        hinit1 hinit2 h1' h2' hfin1 hfin2 in
+    let (hpred,envp) = generate_pred_from_trans index1 index2 (Bool true)
+        (isIncons sr s') h1 h2 h1' h2' lnextstate label in
     let pred = simplify_arith_pred (AAnd (hpred@[AOr current])) in
     let env' = union_list [envh1;envh2;envp;env] in
     (lchc,Some pred,env')
   | PT (s',((_,_,_,_,_,_,PA) as label)) ->
+    Debug.print_debug "PA";
     let incons_pred = if isIncons sr s' then [AEqual (b,(Bool false))] else [] in
-    let (lchc,_,lnextstate,env) = visit_sr sr index1 index2 s' b hinit1 hinit2 h1 h2 hfin1 hfin2 in
-    let (hpred,envp) = generate_pred_from_trans index1 index2 b (isIncons sr s') h1 h2 hfin1 hfin2 lnextstate label in
+    let (lchc,_,lnextstate,_,env) = visit_sr sr index1 index2 s' b gsubst
+        hinit1 hinit2 h1 h2 hfin1 hfin2 in
+    let (hpred,envp) = generate_pred_from_trans index1 index2 b (isIncons sr s')
+        h1 h2 hfin1 hfin2 lnextstate label in
     let pred = simplify_arith_pred (AAnd (incons_pred@hpred)) in
     let env' = SMTEnv.union envp env in
     (lchc,Some pred,env')
-  (* | PET (s',gsubt) ->
-    let (envh1,hinit1') = freshen_heap hfin1 in
-    let (envh2,hinit2') = freshen_heap hfin2 in
-    let (envh3,hfin1') = freshen_heap hfin1 in
-    let (envh4,hfin2') = freshen_heap hfin2 in
-    let (lchc,current,_,env) = visit_sr sr index1 index2 s' b hinit1' hinit2' hinit1' hinit2' hfin1' hfin2' in
+  | PET (s',gsubst') ->
+    let (envh1,hinit1') = generate_heap_from_index index1 in
+    let (envh2,hinit2') = generate_heap_from_index index2 in
+    let (envh3,hfin1') = generate_heap_from_index index1 in
+    let (envh4,hfin2') = generate_heap_from_index index2 in
+    let (lchc,current,_,_,env) = visit_sr sr index1 index2 s' b gsubst
+        hinit1' hinit2' hinit1' hinit2' hfin1' hfin2' in
     let pred = simplify_arith_pred (AOr current) in
-    let rel = apply_pred_rel index1 index2 b hinit1' hinit2' hfin1' hfin2' s in
-    let chc = (s,rel,pred) in *)
+    let rel = apply_pred_rel index1 index2 b hinit1' hinit2' hfin1' hfin2'
+        ~gsubst:gsubst' s in
+    let chc = (s',rel,pred) in
+    let n = (List.length gsubst') + 2*(List.length hfin1) + 2*(List.length hfin2) in
+    let lty = generate_lty n in
+    let rel_decl = SMTRel (predstring_of_state s',TBool::lty) in
+    let env' = union_list [envh1;envh2;envh3;envh4;env] in
+    let env'' = SMTEnv.add rel_decl env' in
+    (chc::lchc,None,env'')
+  | PBT (s',gsubst') ->
+    let rel = apply_pred_rel index1 index2 b hinit1 hinit2 hfin1 hfin2
+        ~gsubst:gsubst' s' in
+    ([],Some rel,SMTEnv.empty)
   | OT (s',OA) ->
-    let (lchc,current,_,env) = visit_sr sr index1 index2 s' b hinit1 hinit2 h1 h2 hfin1 hfin2 in
+    Debug.print_debug "OA";
+    let (lchc,current,_,_,env) = visit_sr sr index1 index2 s' b gsubst
+        hinit1 hinit2 h1 h2 hfin1 hfin2 in
     let pred = simplify_arith_pred (AOr current) in
     (lchc,Some pred,env)
-  | OT (s',OQ) ->
-    let (envh1,hinit1') = freshen_heap hfin1 in
-    let (envh2,hinit2') = freshen_heap hfin2 in
-    let (envh3,hfin1') = freshen_heap hfin1 in
-    let (envh4,hfin2') = freshen_heap hfin2 in
-    let (lchc,current,_,env) = visit_sr sr index1 index2 s' b hinit1' hinit2' hinit1' hinit2' hfin1' hfin2' in
+  | OT (s',OI)  | OT (s',OQ) ->
+    Debug.print_debug "OQ";
+    let (envh1,hinit1') = generate_heap_from_index index1 in
+    let (envh2,hinit2') = generate_heap_from_index index2 in
+    let (envh3,hfin1') = generate_heap_from_index index1 in
+    let (envh4,hfin2') = generate_heap_from_index index2 in
+    let (lchc,current,_,_,env) = visit_sr sr index1 index2 s' b gsubst
+        hinit1' hinit2' hinit1' hinit2' hfin1' hfin2' in
     let pred = simplify_arith_pred (AOr current) in
     let rel = apply_pred_rel index1 index2 b hinit1' hinit2' hfin1' hfin2' s in
     let chc = (s,rel,pred) in
-    let n = 2*(List.length hfin1) + 2*(List.length hfin2) in
+    let n = 2*(List.length hfin1') + 2*(List.length hfin2') in
     let lty = generate_lty n in
     let rel_decl = SMTRel (predstring_of_state s,TBool::lty) in
     let env' = union_list [envh1;envh2;envh3;envh4;env] in
     let env'' = SMTEnv.add rel_decl env' in
     (chc::lchc,None,env'')
   | OET _ -> ([],None,SMTEnv.empty)
-  | _ -> failwith ("Error: Wrong Transition. Please report.")
+
+let extract_init_trans sr =
+  match get_ltrans sr.trans_fun sr.init_state with
+  | [(OT (s,OI) as trans)] ->
+    begin match get_ltrans sr.trans_fun s with
+      | [PT (s',([],[],h1,h2,preds,_,PA))] -> (h1,h2,trans)
+      | _ ->  failwith "Error in the generation of the CHC:
+                        The OQ initial transition is not followed by a PA transition."
+    end
+    | [] -> failwith "Error in the generation of the CHC: Empty STS. Please report."
+    | _ -> failwith "Error in the generation of the CHC: Too many initial transitions."
 
 let rec visit_sr_full sr =
-  let ltrans = get_ltrans sr.trans_fun sr.init_state in
-  match ltrans with
-  | [PT (s',([],[],h1,h2,preds,_,PA))] ->
-    let index1 = generate_index_loc h1 in
-    let index2 = generate_index_loc h2 in
-    let idb = fresh_bvar () in
-    let b = Var idb in
-    let (env_hfin1,hfin1) = freshen_heap h1 in
-    let (env_hfin2,hfin2) = freshen_heap h2 in
-    let (lchc,current,_,env) = visit_sr sr index1 index2 sr.init_state b [] [] [] [] hfin1 hfin2 in
-    let rel = apply_pred_rel index1 index2 b [] [] hfin1 hfin2 sr.init_state in
-    let chc = (sr.init_state,rel,AOr current) in
-    let n = (List.length hfin1) + (List.length hfin2) in
-    let lty = generate_lty n in
-    let rel_decl = SMTRel (predstring_of_state sr.init_state,TBool::lty) in
-    let init_rel_name = "P" in
-    let init_rel_decl = SMTRel (init_rel_name,[]) in
-    let (env_hinit1,hinit1) = freshen_heap h1 in
-    let (env_hinit2,hinit2) = freshen_heap h2 in
-    let init_rel = ARel (init_rel_name,[]) in
-    let next_rel = apply_pred_rel index1 index2 (Bool false) [] [] hinit1 hinit2 sr.init_state in
-    let init_chc = (-1,init_rel,next_rel) in
-    let env' = union_list [env_hinit1; env_hinit2; env_hfin1; env_hfin2; env] in
-    let env' = SMTEnv.add (SMTVar (idb,TBool)) env' in
-    let env' = SMTEnv.add init_rel_decl env' in
-    let env' = SMTEnv.add rel_decl env' in
-    (init_chc::chc::lchc,init_rel_name,env')
-  | [] -> failwith "Error in the generation of the CHC: Empty STS. Please report."
-  | _ -> failwith "Error in the generation of the CHC: Too many initial transitions.
-       Please report."
+  let (h1,h2,trans) = extract_init_trans sr in
+  let index1 = generate_index h1 in
+  let index2 = generate_index h2 in
+  let idb = fresh_bvar () in
+  let b = Var idb in
+  let (lchc,_,env) = visit_sr_aux sr index1 index2 sr.init_state b
+      [] [] [] [] [] [] [] trans in
+  let init_rel_name = "P" in
+  let init_rel_decl = SMTRel (init_rel_name,[]) in
+  let (env_hinit1,hinit1) = generate_heap_from_index index1 in
+  let (env_hinit2,hinit2) = generate_heap_from_index index2 in
+  let (env_hfin1,hfin1) = generate_heap_from_index index1 in
+  let (env_hfin2,hfin2) = generate_heap_from_index index2 in
+  let init_rel = ARel (init_rel_name,[]) in
+  let next_rel = apply_pred_rel index1 index2 (Bool false)
+      hinit1 hinit2 hfin1 hfin2 sr.init_state in
+  let init_chc = (-1,init_rel,next_rel) in
+  let env = union_list [env_hinit1; env_hinit2; env_hfin1; env_hfin2; env] in
+  let env = SMTEnv.add (SMTVar (idb,TBool)) env in
+  let env = SMTEnv.add init_rel_decl env in
+  (init_chc::lchc,init_rel_name,env)
+
+
+  (* let (env_hfin1,hfin1) = freshen_heap h1 in
+  let (env_hfin2,hfin2) = freshen_heap h2 in
+  let (lchc,current,_,_,env) = visit_sr sr index1 index2 sr.init_state b
+      [] [] [] [] [] hfin1 hfin2 in
+  let rel = apply_pred_rel index1 index2 b [] [] hfin1 hfin2 sr.init_state in
+  let chc = (sr.init_state,rel,AOr current) in
+  let n = (List.length hfin1) + (List.length hfin2) in
+  let lty = generate_lty n in
+  let rel_decl = SMTRel (predstring_of_state sr.init_state,TBool::lty) in
+  let init_rel_name = "P" in
+  let init_rel_decl = SMTRel (init_rel_name,[]) in
+  let (env_hinit1,hinit1) = freshen_heap h1 in
+  let (env_hinit2,hinit2) = freshen_heap h2 in
+  let init_rel = ARel (init_rel_name,[]) in
+  let next_rel = apply_pred_rel index1 index2 (Bool false)
+      [] [] hinit1 hinit2 sr.init_state in
+  let init_chc = (-1,init_rel,next_rel) in
+  let env' = union_list [env_hinit1; env_hinit2; env_hfin1; env_hfin2; env] in
+  let env' = SMTEnv.add (SMTVar (idb,TBool)) env' in
+  let env' = SMTEnv.add init_rel_decl env' in
+  let env' = SMTEnv.add rel_decl env' in
+  (init_chc::chc::lchc,init_rel_name,env') *)
+
 
 let chc_to_string_smtlib (_,rel,preds) =
   "(rule (=> " ^ string_of_arith_pred_smtlib (simplify_arith_pred preds) ^ " "
@@ -243,7 +349,7 @@ let print_lchc file lchc =
   List.iter (fun chc -> Printer.print_to_file file (chc_to_string chc)) lchc
 
 let print_full_chc file (lchc,init_rel,env) =
-   Printer.print_to_file file ("Constrained Horn Clause:");  
+   Printer.print_to_file file ("Constrained Horn Clause:");
    print_smt_env file env;
    print_lchc_smtlib file lchc;
    Printer.print_to_file file ("(query "^ init_rel ^ ":print-certificate true)")

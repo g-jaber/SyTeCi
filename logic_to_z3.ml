@@ -52,29 +52,46 @@ let rec exprML_to_z3_expr ctx z3env = function
     begin match Pmap.lookup_pmap x z3env with
       | Some (Z3Var expr) -> expr  (* We may have to use another sort for Locations *)
       | Some (Z3Rel _) -> failwith ("Error: The variable " ^ x ^
-                           "corresponds to a relation symbol. Please report.")
+                           " corresponds to a relation symbol. Please report.")
       | None -> failwith ("Error: The variable " ^ x ^
-                          "has not been found in the symbol environment. Please report.")
+                          " has not been found in the symbol environment. Please report.")
     end
   | Int n -> Z3.Arithmetic.Integer.mk_numeral_i ctx n
   | Bool b -> Z3.Boolean.mk_val ctx b
-  | Plus (e1,e2) -> mk_add ctx [exprML_to_z3_expr ctx z3env e1; exprML_to_z3_expr ctx z3env e2]
-  | Minus (e1,e2) -> mk_sub ctx [exprML_to_z3_expr ctx z3env e1; exprML_to_z3_expr ctx z3env e2]
-  | Mult (e1,e2) -> mk_mul ctx [exprML_to_z3_expr ctx z3env e1; exprML_to_z3_expr ctx z3env e2]
-  | Div (e1,e2) -> mk_div ctx (exprML_to_z3_expr ctx z3env e1) (exprML_to_z3_expr ctx z3env e2)
-  | expr -> failwith ("Error: Trying to transform " ^ (string_of_exprML expr) ^ " into a ground term. Please report.")
+  | Plus (e1,e2) ->
+    mk_add ctx [exprML_to_z3_expr ctx z3env e1; exprML_to_z3_expr ctx z3env e2]
+  | Minus (e1,e2) ->
+    mk_sub ctx [exprML_to_z3_expr ctx z3env e1; exprML_to_z3_expr ctx z3env e2]
+  | Mult (e1,e2) ->
+    mk_mul ctx [exprML_to_z3_expr ctx z3env e1; exprML_to_z3_expr ctx z3env e2]
+  | Div (e1,e2) ->
+    mk_div ctx (exprML_to_z3_expr ctx z3env e1) (exprML_to_z3_expr ctx z3env e2)
+  | expr ->
+    failwith ("Error: Trying to transform " ^ (string_of_exprML expr)
+              ^ " into a ground term. Please report.")
 
 let rec arith_pred_to_z3_expr ctx z3env = function
   | ATrue -> mk_true ctx
   | AFalse -> mk_false ctx
-  | AAnd apreds -> mk_and ctx (List.map (arith_pred_to_z3_expr ctx z3env) apreds)
-  | AOr apreds -> mk_or ctx (List.map (arith_pred_to_z3_expr ctx z3env) apreds)
-  | AEqual (e1,e2) -> mk_eq ctx (exprML_to_z3_expr ctx z3env e1) (exprML_to_z3_expr ctx z3env e2)
-  | ANEqual (e1,e2) -> mk_not ctx (mk_eq ctx (exprML_to_z3_expr ctx z3env e1) (exprML_to_z3_expr ctx z3env e2))
-  | ALess (e1,e2) -> mk_lt ctx (exprML_to_z3_expr ctx z3env e1)  (exprML_to_z3_expr ctx z3env e2)
-  | ALessEq (e1,e2) -> mk_le ctx (exprML_to_z3_expr ctx z3env e1) (exprML_to_z3_expr ctx z3env e2)
-  | AGreat (e1,e2) -> mk_gt ctx (exprML_to_z3_expr ctx z3env e1) (exprML_to_z3_expr ctx z3env e2)
-  | AGreatEq (e1,e2) -> mk_ge ctx (exprML_to_z3_expr ctx z3env e1) (exprML_to_z3_expr ctx z3env e2)
+  | AAnd apreds ->
+    mk_and ctx (List.map (arith_pred_to_z3_expr ctx z3env) apreds)
+  | AOr apreds ->
+    mk_or ctx (List.map (arith_pred_to_z3_expr ctx z3env) apreds)
+  | AEqual (e1,e2) ->
+    mk_eq ctx (exprML_to_z3_expr ctx z3env e1) (exprML_to_z3_expr ctx z3env e2)
+  | ANEqual (e1,e2) ->
+    mk_not ctx (mk_eq ctx (exprML_to_z3_expr ctx z3env e1)
+                  (exprML_to_z3_expr ctx z3env e2))
+  | ALess (e1,e2) ->
+    mk_lt ctx (exprML_to_z3_expr ctx z3env e1)  (exprML_to_z3_expr ctx z3env e2)
+  | ALessEq (e1,e2) -> mk_le ctx (exprML_to_z3_expr ctx z3env e1)
+                         (exprML_to_z3_expr ctx z3env e2)
+  | AGreat (e1,e2) ->
+    mk_gt ctx (exprML_to_z3_expr ctx z3env e1)
+      (exprML_to_z3_expr ctx z3env e2)
+  | AGreatEq (e1,e2) ->
+    mk_ge ctx (exprML_to_z3_expr ctx z3env e1)
+      (exprML_to_z3_expr ctx z3env e2)
   | ARel (f,lexpr) ->
     begin match Pmap.lookup_pmap f z3env with
       | Some (Z3Rel func_decl) ->
@@ -101,16 +118,18 @@ let register_z3_relation fixedpoint = function
 
 let check_sat var_ctx arith_ctx =
   let ctx = Z3.mk_context [("model", "true"); ("proof", "false")] in
-  let z3env = List.map (fun (x,ty) -> (x,Z3Var (Z3.Arithmetic.Integer.mk_const_s ctx x))) var_ctx in
+  let aux (x,ty) = (x,Z3Var (Z3.Arithmetic.Integer.mk_const_s ctx x)) in
+  let z3env = List.map aux var_ctx in
   let solver = mk_simple_solver ctx in
   let constraints = List.map (arith_pred_to_z3_expr ctx z3env) arith_ctx in
   add solver constraints;
   let result = check solver [] in
-  Debug.print_debug ("Checking " ^  (Z3.Solver.to_string solver) ^ " : " ^ (string_of_status result));
+  Debug.print_debug ("Checking " ^  (Z3.Solver.to_string solver) ^ " : "
+                     ^ (string_of_status result));
   match result with
-   | SATISFIABLE -> true
-   | UNKNOWN -> true
-   | UNSATISFIABLE -> false
+  | SATISFIABLE -> true
+  | UNKNOWN -> true
+  | UNSATISFIABLE -> false
 
 let check_sat_chc (lchc,init_rel,smtenv) =
   Z3.toggle_warning_messages true;
@@ -128,5 +147,6 @@ let check_sat_chc (lchc,init_rel,smtenv) =
   match result with
    | SATISFIABLE -> "The two programs are not contextually equivalent."
    | UNKNOWN -> Debug.print_debug (Z3.Fixedpoint.get_reason_unknown fixedpoint);
-     "Z3 failed to check satisfiability of the constrained Horn clauses associated to the reachability problem.";
+     "Z3 failed to check satisfiability of the constrained Horn clauses associated
+      to the reachability problem.";
    | UNSATISFIABLE -> "The two programs are contextually equivalent."

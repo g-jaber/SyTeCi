@@ -26,6 +26,7 @@ let () =
   let si_k = ref 0 in
   let bounded_checking = ref false in
   let asym_unfold = ref false in
+  let ext_reason = ref true in
   let print_cf = ref false in
   let print_sts = ref false in
   let file_sts = ref "" in
@@ -47,7 +48,8 @@ let () =
      ("-pa",Set pred_abstr,"Perform predicate abstraction analysis");
      ("-chc", Set print_chc,"Print the translation of the reachability of inconsistent states as a Constrained Horn Clause");
      ("-file-chc",Set_string file_chc, "Specify the file where to print the Constrained Horn Clause");
-     ("-poly", Set poly,"Allow polymorphic reasoning (Experimental)")
+     ("-poly", Set poly,"Allow polymorphic reasoning (Experimental)");
+     ("-no-ext-reason", Clear ext_reason, "Forbid the initial extensional reasoning on values");
     ] in
   let usage_msg = "Usage: ./syteci filename1 filename2 [options] where the options are:" in
   let get_filename str =
@@ -57,7 +59,9 @@ let () =
     | _ -> failwith ("Error: too many filenames have been provided. \n"^ usage_msg);
   in
   let check_number_filenames () =
-    if !number_filename < 2 then failwith ("Error: two filenames containing the programs to be compared should have been provided. \n"^ usage_msg);
+    if !number_filename < 2 then
+      failwith ("Error: two filenames containing the programs to be compared
+                 should have been provided. \n"^ usage_msg);
   in
   parse speclist get_filename usage_msg;
   check_number_filenames ();
@@ -67,22 +71,27 @@ let () =
                                ^ (Syntax.string_of_typeML ty1)
                                ^ " while the second program is of type "
                                ^ (Syntax.string_of_typeML ty2) ^ ".");
-  let tc = Tcstruct.build_tc !asym_unfold ty1 expr1 expr2 !si_j !si_k  in
+  let tc = Tcstruct.build_tc !ext_reason !asym_unfold ty1 expr1 expr2 !si_j !si_k  in
   if !print_dg then begin
     print_endline ("Inference Graph:");
     print_endline (Tcstruct.string_of_tc tc)
   end;
   if !print_cf then begin
-    let temp_form = Logic.iter 10 Templogic.simplify_temp_formula (Templogic.tformula_of_tc !bounded_checking tc) in
+    let temp_form =
+      Logic.iter 10 Templogic.simplify_temp_formula
+        (Templogic.tformula_of_tc !bounded_checking tc) in
     print_endline ("Temporal Formula:");
     print_endline (Templogic.string_of_temp_formula temp_form)
   end;
+  Debug.print_debug "Computing the STS";
   let sr = Wts.build_sr !bounded_checking tc in
+  Debug.print_debug "Computing the closure of the STS";
   let sr' = Wts_closure.sr_closure sr in
   if !print_sts then begin
     Printer.refresh_file !file_sts;
     Wts_to_dot.dot_from_sr !file_sts sr';
   end;
+  Debug.print_debug "Computing the Constrained Horn Clause";
   let full_chc = Chc.visit_sr_full sr' in
   if !print_chc then begin
     Printer.refresh_file !file_chc;

@@ -50,10 +50,11 @@ let rec string_of_arith_pred_smtlib = function
                      ^ (string_of_exprML_smtlib e2) ^ ")"
   | ALessEq (e1,e2) -> "(<= " ^ (string_of_exprML_smtlib e1) ^ " "
                        ^ (string_of_exprML_smtlib e2) ^ ")"
-  | AGreat (e1,e2) -> "(>" ^ (string_of_exprML_smtlib e1) ^ " > "
+  | AGreat (e1,e2) -> "(> " ^ (string_of_exprML_smtlib e1) ^ " "
                       ^ (string_of_exprML_smtlib e2) ^ ")"
-  | AGreatEq (e1,e2) -> "(>= " ^ (string_of_exprML_smtlib e1) ^ " ≥ "
+  | AGreatEq (e1,e2) -> "(>= " ^ (string_of_exprML_smtlib e1) ^ " "
                         ^ (string_of_exprML_smtlib e2) ^ ")"
+  | ARel (f,[]) -> f
   | ARel (f,lexpr) -> "(" ^ f ^ " " ^
                       (String.concat " " (List.map string_of_exprML_smtlib lexpr)) ^ ")"
 

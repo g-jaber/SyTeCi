@@ -344,14 +344,14 @@ let rec build_esr bc = function
     let new_init_state = fresh_state () in
     sr.trans_fun <- add_trans sr.trans_fun new_init_state
         (PET (sr.init_state,gsubst));
-    sr.init_state <- new_init_state;
     let premise_sequent = get_root tc in
     Debug.print_debug ("Gen id " ^ (string_of_int premise_sequent.id));
     let (p_back_trans_now,p_back_trans_later) = List.partition
         (fun (_,id,_) -> id = premise_sequent.id) p_back_trans in
     let back_trans = List.map
-        (fun (state,_,gsubst) -> (state,PBT (new_init_state,gsubst)))
+        (fun (state,_,gsubst) -> (state,PBT (sr.init_state,gsubst)))
         p_back_trans_now in
+    sr.init_state <- new_init_state;    
     sr.trans_fun <- List.fold_left
         (fun trans_fun (s,trans) -> (add_trans trans_fun s trans))
         sr.trans_fun back_trans;

@@ -311,7 +311,7 @@ let rec build_tc_rule asym_unfold flag hist sequent =
         | (Some (_,gsubst2,bt_sequent,gen_sequent)) ->
           Debug.print_debug "Backtrack";
           Backtrack (gsubst2,bt_sequent,gen_sequent)
-        | _ -> let expr1'' = fill_hole ctx1' (App (body1,val1)) in
+        | None -> let expr1'' = fill_hole ctx1' (App (body1,val1)) in
           (* If we have not seen it, we unfold the fixed-points *)
           let expr2'' = fill_hole ctx2' (App (body2,val2)) in
           let sequent'' = update_sequent sequent [] ~j:(j-1) ~k:(k-1)

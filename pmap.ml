@@ -17,6 +17,6 @@ let rec string_of_pmap sep f = function
   | [(x,v)] -> x ^ sep ^ (f v)
   | (x,v)::pmap -> x ^ sep ^ (f v) ^ "," ^ (string_of_pmap sep f pmap)
 
-let rec codom_of_pmap = function
-  | [] -> []
-  | (x,v)::l -> v::(codom_of_pmap l)
+let dom_of_pmap pmap = List.map fst pmap
+
+let codom_of_pmap pmap = List.map snd pmap

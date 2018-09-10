@@ -1,6 +1,7 @@
 open Syntax
 open Logic
 open Smt
+open Str
 open Z3.Arithmetic
 open Z3.Boolean
 open Z3.Solver
@@ -99,11 +100,11 @@ let rec arith_pred_to_z3_expr ctx z3env = function
         Z3.FuncDecl.apply func_decl arguments
       | Some (Z3Var _) ->
         failwith ("The symbol " ^ f
-                  ^ "is a variable, not a relation. Please report.")
+                  ^ " is a variable, not a relation. Please report.")
 
       | None ->
         failwith ("The relation " ^ f ^
-                  "has not been found in the symbol environment. Please report.")
+                  " has not been found in the symbol environment. Please report.")
     end
 
 let chc_to_z3_expr ctx z3env (_,rel,preds) =
@@ -133,7 +134,7 @@ let check_sat var_ctx arith_ctx =
 
 let check_sat_chc (lchc,init_rel,smtenv) =
   Z3.toggle_warning_messages true;
-  let ctx = Z3.mk_context [("model", "true"); ("proof", "false")] in
+  let ctx = Z3.mk_context [] in
   let fixedpoint = Z3.Fixedpoint.mk_fixedpoint ctx in
   let z3env = smtenv_to_z3env ctx smtenv in
   List.iter (register_z3_relation fixedpoint) z3env;
@@ -141,12 +142,59 @@ let check_sat_chc (lchc,init_rel,smtenv) =
   List.iter (fun expr -> Z3.Fixedpoint.add_rule fixedpoint expr None) lchc_z3;
   let init_func_decl = get_z3rel_from_z3env z3env init_rel in
   let query = Z3.FuncDecl.apply init_func_decl [] in
-  let result = Z3.Fixedpoint.query fixedpoint query in
+  (* Debug.print_debug "Z3 fixedpoint parameters:";
+  Debug.print_debug (Z3.Fixedpoint.get_help fixedpoint); *)
   Debug.print_debug "Z3 fixedpoint internal representation:";
   Debug.print_debug (Z3.Fixedpoint.to_string fixedpoint);
+  let result = Z3.Fixedpoint.query fixedpoint query in
   match result with
    | SATISFIABLE -> "The two programs are not contextually equivalent."
    | UNKNOWN -> Debug.print_debug (Z3.Fixedpoint.get_reason_unknown fixedpoint);
      "Z3 failed to check satisfiability of the constrained Horn clauses associated
       to the reachability problem.";
    | UNSATISFIABLE -> "The two programs are contextually equivalent."
+
+let get_chc_z3_str (lchc,init_rel,smtenv) =
+     Z3.toggle_warning_messages true;
+     let ctx = Z3.mk_context [] in
+     let fixedpoint = Z3.Fixedpoint.mk_fixedpoint ctx in
+     let z3env = smtenv_to_z3env ctx smtenv in
+     List.iter (register_z3_relation fixedpoint) z3env;
+     let lchc_z3 = List.map (chc_to_z3_expr ctx z3env) lchc in
+     List.iter (fun expr -> Z3.Fixedpoint.add_rule fixedpoint expr None) lchc_z3;
+     let str = Z3.Fixedpoint.to_string fixedpoint in
+     let str_list = String.split_on_char '\n' str in
+     let regexp = Str.regexp_string "(declare-fun" in
+     let str_list = List.filter (fun str -> not (Str.string_match regexp str 0)) str_list in
+     let str_list = str_list@["(query P:print-certificate true)"] in
+     String.concat "\n" str_list
+
+let check_sat_chc_str str =
+  Z3.toggle_warning_messages true;
+  let ctx = Z3.mk_context [] in
+  let fixedpoint = Z3.Fixedpoint.mk_fixedpoint ctx in
+  let query = List.hd (Z3.Fixedpoint.parse_string fixedpoint str) in
+  Debug.print_debug "Z3 fixedpoint internal representation:";
+  Debug.print_debug (Z3.Fixedpoint.to_string fixedpoint);
+  let result = Z3.Fixedpoint.query fixedpoint query in
+  match result with
+  | SATISFIABLE -> "The two programs are not contextually equivalent."
+  | UNKNOWN -> Debug.print_debug (Z3.Fixedpoint.get_reason_unknown fixedpoint);
+    "Z3 failed to check satisfiability of the constrained Horn clauses associated
+              to the reachability problem.";
+  | UNSATISFIABLE -> "The two programs are contextually equivalent."
+(*
+let check_sat_chc_file file =
+  Z3.toggle_warning_messages true;
+  let ctx = Z3.mk_context [] in
+  let fixedpoint = Z3.Fixedpoint.mk_fixedpoint ctx in
+  let [query] = Z3.Fixedpoint.parse_file fixedpoint file  in
+  Debug.print_debug "Z3 fixedpoint internal representation:";
+  Debug.print_debug (Z3.Fixedpoint.to_string fixedpoint);
+  let result = Z3.Fixedpoint.query fixedpoint query in
+  match result with
+  | SATISFIABLE -> "The two programs are not contextually equivalent."
+  | UNKNOWN -> Debug.print_debug (Z3.Fixedpoint.get_reason_unknown fixedpoint);
+    "Z3 failed to check satisfiability of the constrained Horn clauses associated
+         to the reachability problem.";
+  | UNSATISFIABLE -> "The two programs are contextually equivalent." *)

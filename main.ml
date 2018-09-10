@@ -96,8 +96,13 @@ let () =
   if !print_chc then begin
     Printer.refresh_file !file_chc;
     Chc.print_full_chc !file_chc full_chc;
+    (* print_endline (Logic_to_z3.check_sat_chc_file !file_chc); *)
   end;
-  print_endline (Logic_to_z3.check_sat_chc full_chc);
+  (* print_endline (Logic_to_z3.check_sat_chc_file "result.smt");   *)
+  (* print_endline (Logic_to_z3.check_sat_chc full_chc); *)
+  let str = Logic_to_z3.get_chc_z3_str full_chc in
+  (* print_endline str; *)
+  print_endline (Logic_to_z3.check_sat_chc_str str);
   if !pred_abstr then begin
     print_endline("Predicate Abstraction:");
     let push_sys = Pred_abstr.wts_to_ps sr' in

@@ -34,8 +34,8 @@ rule token = parse
   | "&&" { AND }
   | "||" { OR }
   | "not" { NOT }
-  | "<" { GREAT }
-  | "<=" { GREATEQ }
+  | ">" { GREAT }
+  | ">=" { GREATEQ }
   | "<" { LESS }
   | "<=" { LESSEQ }
   | "<>" { NEQ }

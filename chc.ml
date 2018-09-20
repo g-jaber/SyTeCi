@@ -146,7 +146,7 @@ let generate_pred_from_trans index1 index2 b isincons h1 h2 h1' h2' lnextstate
     | (PA,false) -> [AEqual (b,(Bool true))]
     | (PQ,false) | (PI,false) -> []
   in
-  let predPost =
+  let predPost = simplify_arith_pred
       (AOr ((AAnd (maycons@predPost1@predPost2))::nextpred)) in
   let envc = generate_env_from_ctx var_ctx in
   let env = union_list [envh1; envh2;envc] in

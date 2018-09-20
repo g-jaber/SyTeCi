@@ -9,7 +9,7 @@
 %token EQ
 %token PLUS MINUS MULT DIV
 %token AND OR NOT
-%token NEQ LESS LESSEQ
+%token NEQ GREAT GREATEQ LESS LESSEQ
 %token TRUE FALSE
 %token LPAR RPAR COMMA COLON SEMICOLON
 %token LET REC IN
@@ -26,7 +26,7 @@
 %left SEMICOLON
 %left ASSIGN
 %nonassoc NOT
-%nonassoc EQ NEQ LESS LESSEQ
+%nonassoc EQ NEQ GREAT GREATEQ LESS LESSEQ
 %left OR
 %left AND
 %left PLUS MINUS
@@ -67,6 +67,8 @@ expr:
   | expr OR expr      { Or ($1, $3) }
   | expr EQ expr      { Equal ($1, $3) }
   | expr NEQ expr     { NEqual ($1, $3) }
+  | expr GREAT expr    { Great ($1, $3) }
+  | expr GREATEQ expr  { GreatEq ($1, $3) }
   | expr LESS expr    { Less ($1, $3) }
   | expr LESSEQ expr  { LessEq ($1, $3) }
 

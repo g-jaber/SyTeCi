@@ -1,12 +1,12 @@
 {
   open Lexing
   open Parser
-  
+
   exception SyntaxError of string
 
   let newline lexbuf =
     let pos = lexbuf.lex_curr_p in
-      lexbuf.lex_curr_p <- 
+      lexbuf.lex_curr_p <-
         { pos with pos_lnum = pos.pos_lnum + 1; pos_bol = pos.pos_cnum }
 }
 
@@ -28,49 +28,51 @@ rule token = parse
   | '-'  { MINUS }
   | '*'  { MULT }
   | '/'  { DIV }
-  
+
   | "true" { TRUE }
   | "false" { FALSE }
   | "&&" { AND }
   | "||" { OR }
   | "not" { NOT }
+  | "<" { GREAT }
+  | "<=" { GREATEQ }
   | "<" { LESS }
-  | "<=" {LESSEQ }
+  | "<=" { LESSEQ }
   | "<>" { NEQ }
-  
+
   | "let"  { LET }
   | "rec" { REC }
   | "in"  { IN }
   | "fun"  { FUN }
-  | "fix"  { FIX }  
-  
+  | "fix"  { FIX }
+
   | "()" { UNIT }
-  | "ref" { REF }  
+  | "ref" { REF }
   | ":=" { ASSIGN }
-  | "!" { DEREF }  
-  
+  | "!" { DEREF }
+
   | "if" { IF }
   | "then" { THEN }
   | "else" { ELSE }
-  
-  | "Unit" { TUNIT }  
+
+  | "Unit" { TUNIT }
   | "Int" { TINT }
   | "Bool" { TBOOL }
-  
+
   | "->"  { ARROW }
 
   | '('  { LPAR }
   | ')'  { RPAR }
-  | ','  { COMMA }    
-  | ':'  { COLON }  
-  | ';'  { SEMICOLON }  
-  
+  | ','  { COMMA }
+  | ':'  { COLON }
+  | ';'  { SEMICOLON }
+
   | eof  { EOF }
-  
-  
+
+
   | integer as n  { INT (int_of_string n) }
   | ident as id  { VAR id }
-  
+
 
   | _  { raise Error }
 

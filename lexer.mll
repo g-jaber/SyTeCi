@@ -31,8 +31,8 @@ rule token = parse
 
   | "true" { TRUE }
   | "false" { FALSE }
-  | "&&" { AND }
-  | "||" { OR }
+  | "&&" { LAND }
+  | "||" { LOR }
   | "not" { NOT }
   | ">" { GREAT }
   | ">=" { GREATEQ }

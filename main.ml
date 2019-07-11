@@ -98,7 +98,7 @@ let () =
     Chc.print_full_chc !file_chc full_chc;
     (* print_endline (Logic_to_z3.check_sat_chc_file !file_chc); *)
   end;
-  (* print_endline (Logic_to_z3.check_sat_chc_file "result.smt");   *)
+(*  print_endline (Logic_to_z3.check_sat_chc_file "result.smt");*)
   (* print_endline (Logic_to_z3.check_sat_chc full_chc); *)
   let str = Logic_to_z3.get_chc_z3_str full_chc in
   (* print_endline str; *)

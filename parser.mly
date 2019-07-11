@@ -8,7 +8,7 @@
 %token <Syntax.id> VAR
 %token EQ
 %token PLUS MINUS MULT DIV
-%token AND OR NOT
+%token LAND LOR NOT
 %token NEQ GREAT GREATEQ LESS LESSEQ
 %token TRUE FALSE
 %token LPAR RPAR COMMA COLON SEMICOLON
@@ -27,8 +27,8 @@
 %left ASSIGN
 %nonassoc NOT
 %nonassoc EQ NEQ GREAT GREATEQ LESS LESSEQ
-%left OR
-%left AND
+%left LOR
+%left LAND
 %left PLUS MINUS
 %left MULT DIV
 %nonassoc REF
@@ -63,8 +63,8 @@ expr:
   | expr MULT expr     { Mult ($1, $3) }
   | expr DIV expr      { Div ($1, $3) }
   | NOT expr          { Not ($2) }
-  | expr AND expr     { And ($1, $3) }
-  | expr OR expr      { Or ($1, $3) }
+  | expr LAND expr     { And ($1, $3) }
+  | expr LOR expr      { Or ($1, $3) }
   | expr EQ expr      { Equal ($1, $3) }
   | expr NEQ expr     { NEqual ($1, $3) }
   | expr GREAT expr    { Great ($1, $3) }

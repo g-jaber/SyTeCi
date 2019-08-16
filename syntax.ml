@@ -117,7 +117,7 @@ let rec unify_type lsubst = function
         end
     end
   | ((TVar tvar1) as ty1,TVar tvar2) when tvar1 = tvar2 -> Some (ty1, lsubst)
-  | ((TVar tvar1) as ty1,TVar tvar2) -> Some (ty1, (tvar2,ty1)::lsubst)
+  | ((TVar _) as ty1,TVar tvar2) -> Some (ty1, (tvar2,ty1)::lsubst)
   | (TVar tvar,ty) | (ty, TVar tvar) ->
     begin match lookup_pmap tvar lsubst with
       | None -> Some (ty, (tvar,ty)::lsubst)

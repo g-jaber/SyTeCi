@@ -62,7 +62,7 @@ module IndexVar = Map.Make(
 let generate_index pmap =
   let rec aux n result = function
     | [] -> result
-    | (x,v)::h ->
+    | (x,_)::h ->
       Debug.print_debug ("Adding " ^ x ^ " to the indexing");
       let result' = IndexVar.add x n result in
       aux (n+1) result' h
@@ -120,7 +120,7 @@ let apply_pred_rel index1 index2 b heapPre1 heapPre2 heapPost1 heapPost2 ?gsubst
    | Some gsubst -> ARel (p,b::gsubst@l1@l2@l3@l4)
 
 let generate_env_from_ctx ctx =
-  let ctx' = List.filter (fun (x,ty) -> ty = TInt) ctx in
+  let ctx' = List.filter (fun (_,ty) -> ty = TInt) ctx in
   let env_as_list = List.map (fun x -> (SMTVar x)) ctx' in
   SMTEnv.of_list env_as_list
 
@@ -189,7 +189,7 @@ and visit_sr_aux sr index1 index2 s b gsubst h1 h2 hfin1 hfin2 = function
     Debug.print_debug ("Dealing with PI:" ^ (string_of_state s) ^ " to " ^ (string_of_state s'));
     let (envh1,h1') = generate_heap_from_index index1 in
     let (envh2,h2') = generate_heap_from_index index2 in
-    let (lchc,current,_,lpbtrans,env) = visit_sr sr index1 index2 s' b gsubst
+    let (lchc,current,_,_,env) = visit_sr sr index1 index2 s' b gsubst
         h1' h2' hfin1 hfin2 in
     let (hpred,envp) = generate_pred_from_trans index1 index2 b
         (isIncons sr s') h1 h2 h1' h2' [] label in
@@ -278,7 +278,7 @@ let extract_init_trans sr =
   match get_ltrans sr.trans_fun sr.init_state with
   | [(OT (s,OI) as trans)] ->
     begin match get_ltrans sr.trans_fun s with
-      | PT (s',([],[],h1,h2,preds,_,_))::_ -> (h1,h2,trans)
+      | PT (_,([],[],h1,h2,_,_,_))::_ -> (h1,h2,trans)
       | _ ->  failwith "Error in the generation of the CHC:
                         The OQ initial transition is not followed by a Player transition."
     end
@@ -286,7 +286,7 @@ let extract_init_trans sr =
     | _ -> failwith "Error in the generation of the CHC:
                      Too many initial transitions. Please report."
 
-let rec visit_sr_full sr =
+let visit_sr_full sr =
   let (h1,h2,trans) = extract_init_trans sr in
   let index1 = generate_index h1 in
   let index2 = generate_index h2 in

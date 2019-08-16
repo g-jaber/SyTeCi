@@ -38,7 +38,7 @@ let string_of_formula = function
     ^ (string_of_full_expr fctx1) ^ "," ^ (string_of_full_expr fctx2) ^ ")"
   | RelEquiv (ty,var_ctx,fexpr1,fexpr2) ->
     (string_of_full_expr fexpr1) ^ "≃^" ^ (string_of_vars var_ctx)^ " "
-    ^ (string_of_full_expr fexpr2)
+    ^ (string_of_full_expr fexpr2) ^ ":" ^ (string_of_typeML ty)
 
 (* -------- Sequents ---------- *)
 
@@ -62,7 +62,7 @@ type sequent = { id : id_sequent;
                }
 
 let create_sequent ?(ground_var_ctx=[]) j k formula =
-  { id = fresh_id_sequent (); ground_var_ctx = []; alpha = []; arith_ctx = [];
+  { id = fresh_id_sequent (); ground_var_ctx = ground_var_ctx; alpha = []; arith_ctx = [];
     j = j; k = k; formula = formula }
 
 let update_sequent sequent ground_var_ctx ?(alpha=[]) ?(arith_ctx=[])

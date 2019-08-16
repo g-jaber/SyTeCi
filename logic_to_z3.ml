@@ -1,7 +1,6 @@
 open Syntax
 open Logic
 open Smt
-open Str
 open Z3.Arithmetic
 open Z3.Boolean
 open Z3.Solver
@@ -119,7 +118,7 @@ let register_z3_relation fixedpoint = function
 
 let check_sat var_ctx arith_ctx =
   let ctx = Z3.mk_context [("model", "true"); ("proof", "false")] in
-  let aux (x,ty) = (x,Z3Var (Z3.Arithmetic.Integer.mk_const_s ctx x)) in
+  let aux (x,_) = (x,Z3Var (Z3.Arithmetic.Integer.mk_const_s ctx x)) in
   let z3env = List.map aux var_ctx in
   let solver = mk_simple_solver ctx in
   let constraints = List.map (arith_pred_to_z3_expr ctx z3env) arith_ctx in
@@ -154,7 +153,7 @@ let check_sat_chc (lchc,init_rel,smtenv) =
       to the reachability problem.";
    | UNSATISFIABLE -> "The two programs are contextually equivalent."
 
-let get_chc_z3_str (lchc,init_rel,smtenv) =
+let get_chc_z3_str (lchc,_,smtenv) =
      Z3.toggle_warning_messages true;
      let ctx = Z3.mk_context [] in
      let fixedpoint = Z3.Fixedpoint.mk_fixedpoint ctx in
@@ -197,7 +196,7 @@ let params = Z3.Params.mk_params ctx in
 let symbol = Z3.Symbol.mk_string ctx  "spacer.gpdr" in
 Z3.Params.add_bool params symbol true;
 Z3.Fixedpoint.set_parameters fixedpoint params;
-  let [query] = Z3.Fixedpoint.parse_file fixedpoint file  in
+  let query = List.hd (Z3.Fixedpoint.parse_file fixedpoint file) in
    Debug.print_debug "Z3 fixedpoint parameters:";
   Debug.print_debug (Z3.Fixedpoint.get_help fixedpoint);
    Debug.print_debug "Z3 fixedpoint param:";

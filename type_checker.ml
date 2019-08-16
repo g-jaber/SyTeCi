@@ -28,7 +28,7 @@ let rec typing vctx lctx expr = match expr with
   | Equal (e1,e2) | NEqual (e1,e2) | Less (e1,e2) | LessEq (e1,e2) | Great (e1,e2) | GreatEq (e1,e2)  -> of_type_bin vctx lctx TInt e1 e2 TBool
   | Not e -> of_type vctx lctx e TBool
   | If (e1,e2,e3) ->
-    let (ty1,vctx1) = of_type vctx lctx e1 TBool in
+    let (_,vctx1) = of_type vctx lctx e1 TBool in
     let (ty2,vctx2) = typing vctx1 lctx e2 in
     let (ty3,vctx3) = typing vctx2 lctx e3 in
     begin match unify_type [] (ty2,ty3) with
@@ -100,7 +100,7 @@ let rec typing vctx lctx expr = match expr with
         (tvar,subst_vctx a (TArrow (aty,tvar)) vctx'')
       | TArrow (ty',ty) ->
         begin match unify_type [] (ty',aty) with
-          | Some (aty',lsubst) -> (ty,lsubst_vctx lsubst vctx'')
+          | Some (_,lsubst) -> (ty,lsubst_vctx lsubst vctx'')
           | None -> failwith ("Error typing " ^ (Syntax.string_of_exprML expr) ^ ": "
                               ^ (string_of_typeML ty') ^ " is not equal to "
                               ^(string_of_typeML aty))

@@ -1,7 +1,7 @@
 open Syntax
 open Logic
 
-let rec string_of_exprML_smtlib = function
+let string_of_exprML_smtlib = function
   | Var x -> x
   | Loc l -> "l" ^ (string_of_int l)
   | Int n -> string_of_int n

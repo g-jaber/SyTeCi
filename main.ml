@@ -1,5 +1,4 @@
 open Arg
-open Lexing
 
 let get_term nbprog poly filename =
   let inBuffer = open_in filename in
@@ -31,7 +30,6 @@ let () =
   let print_sts = ref false in
   let file_sts = ref "" in
   let print_dg = ref false in
-  let pred_abstr = ref false in
   let print_chc = ref false in
   let file_chc = ref "" in
   let poly = ref false in
@@ -45,7 +43,6 @@ let () =
      ("-au",Set asym_unfold, "Enable asymmetric unfolding of recursive calls");
      ("-sts",Set print_sts, "Print the Symbolic Transition System");
      ("-file-sts",Set_string file_sts, "Specify the file where to print the STS");
-     ("-pa",Set pred_abstr,"Perform predicate abstraction analysis");
      ("-chc", Set print_chc,"Print the translation of the reachability of inconsistent states as a Constrained Horn Clause");
      ("-file-chc",Set_string file_chc, "Specify the file where to print the Constrained Horn Clause");
      ("-poly", Set poly,"Allow polymorphic reasoning (Experimental)");
@@ -103,8 +100,3 @@ let () =
   let str = Logic_to_z3.get_chc_z3_str full_chc in
   (* print_endline str; *)
   print_endline (Logic_to_z3.check_sat_chc_str str);
-  if !pred_abstr then begin
-    print_endline("Predicate Abstraction:");
-    let push_sys = Pred_abstr.wts_to_ps sr' in
-    Pushdown_system.dot_from_push_sys push_sys
-  end

@@ -1,4 +1,5 @@
 open Arg
+open Syteci
 
 let get_term nbprog poly filename =
   let inBuffer = open_in filename in

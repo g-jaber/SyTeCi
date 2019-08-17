@@ -1,0 +1,8 @@
+(executable
+  (name main)
+  (public_name syteci)
+  (package syteci)
+  (link_flags -cclib -lstdc++)
+  (libraries syteci z3 str)
+)
+

@@ -1,0 +1,8 @@
+(ocamllex lexer)
+(menhir (modules parser))
+
+(library
+  (name syteci)
+  (libraries z3 str)
+)
+

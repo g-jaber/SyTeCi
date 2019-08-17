@@ -52,7 +52,7 @@ type state = int
 
 module States = Set.Make(
   struct
-    let compare = Pervasives.compare (* TODO: Change this ! *)
+    let compare = compare
     type t = state
   end )
 
@@ -88,7 +88,7 @@ let get_state_of_trans = function
 
 module StateMap = Map.Make(
   struct
-    let compare = Pervasives.compare (* TODO: Change this ! *)
+    let compare = compare
     type t = state
   end)
 

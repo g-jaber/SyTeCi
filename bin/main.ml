@@ -32,6 +32,7 @@ let () =
   let file_sts = ref "" in
   let print_dg = ref false in
   let print_chc = ref false in
+  let check_chc = ref false in
   let file_chc = ref "" in
   let poly = ref false in
   let speclist =
@@ -42,9 +43,10 @@ let () =
      ("-k",Set_int si_k,"Fix the right step-index to n in order to control unfolding of recursive calls");
      ("-bc",Set bounded_checking, "Enable bounded checking");
      ("-au",Set asym_unfold, "Enable asymmetric unfolding of recursive calls");
-     ("-sts",Set print_sts, "Print the Symbolic Transition System");
-     ("-file-sts",Set_string file_sts, "Specify the file where to print the STS");
-     ("-chc", Set print_chc,"Print the translation of the reachability of inconsistent states as a Constrained Horn Clause");
+     ("-smtm",Set print_sts, "Print the Structured-Memory Transition Machine");
+     ("-file-smtm",Set_string file_sts, "Specify the file where to print the SMTM");
+     ("-chc", Set print_chc,"Print the translation of the reachability of failed states as a Constrained Horn Clause");
+     ("-check-chc", Set check_chc,"Check the generated Constrained Horn Clause with z3 (Experimental)");
      ("-file-chc",Set_string file_chc, "Specify the file where to print the Constrained Horn Clause");
      ("-poly", Set poly,"Allow polymorphic reasoning (Experimental)");
      ("-no-ext-reason", Clear ext_reason, "Forbid the initial extensional reasoning on values");
@@ -81,23 +83,23 @@ let () =
     print_endline ("Temporal Formula:");
     print_endline (Templogic.string_of_temp_formula temp_form)
   end;
-  Debug.print_debug "Computing the STS";
+  Debug.print_debug "Computing the SMTM";
   let sr = Wts.build_sr !bounded_checking tc in
-  Debug.print_debug "Computing the closure of the STS";
+  Debug.print_debug "Computing the closure of the SMTM";
   let sr' = Wts_closure.sr_closure sr in
   if !print_sts then begin
     Printer.refresh_file !file_sts;
     Wts_to_dot.dot_from_sr !file_sts sr';
   end;
   Debug.print_debug "Computing the Constrained Horn Clause";
-  let full_chc = Chc.visit_sr_full sr' in
-  if !print_chc then begin
-    Printer.refresh_file !file_chc;
-    Chc.print_full_chc !file_chc full_chc;
-    (* print_endline (Logic_to_z3.check_sat_chc_file !file_chc); *)
-  end;
-(*  print_endline (Logic_to_z3.check_sat_chc_file "result.smt");*)
-  (* print_endline (Logic_to_z3.check_sat_chc full_chc); *)
-  let str = Logic_to_z3.get_chc_z3_str full_chc in
-  (* print_endline str; *)
-  print_endline (Logic_to_z3.check_sat_chc_str str);
+  if !print_chc || !check_chc then begin
+    let full_chc = Chc.visit_sr_full sr' in
+    if !print_chc then begin
+      Printer.refresh_file !file_chc;
+      Chc.print_full_chc !file_chc full_chc;
+    end;
+    if !check_chc then begin
+      let str = Logic_to_z3.get_chc_z3_str full_chc in
+      print_endline (Logic_to_z3.check_sat_chc_str str)
+    end
+  end

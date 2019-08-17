@@ -80,9 +80,9 @@ let indexing_pmap index pmap =
       let i =
         try IndexVar.find x index with
           Not_found ->
-          failwith ("One of the program is allocating a reference
-                    inside the body of a function. The generation of the
-                    Constrained Horn Clause doo not handle this case.")
+          failwith ("One of the program is allocating a reference"
+          ^ " inside the body of a function. The generation of the"
+          ^ " Constrained Horn Clause doo not handle this case.")
       in
       tab.(i) <- Some v;
       aux pmap

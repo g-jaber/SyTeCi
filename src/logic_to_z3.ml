@@ -125,7 +125,7 @@ let check_sat var_ctx arith_ctx =
   add solver constraints;
   let result = check solver [] in
   Debug.print_debug ("Checking " ^  (Z3.Solver.to_string solver) ^ " : "
-                     ^ (string_of_status result));
+    ^ (string_of_status result));
   match result with
   | SATISFIABLE -> true
   | UNKNOWN -> true
@@ -149,8 +149,8 @@ let check_sat_chc (lchc,init_rel,smtenv) =
   match result with
    | SATISFIABLE -> "The two programs are not contextually equivalent."
    | UNKNOWN -> Debug.print_debug (Z3.Fixedpoint.get_reason_unknown fixedpoint);
-     "Z3 failed to check satisfiability of the constrained Horn clauses associated
-      to the reachability problem.";
+     "Z3 failed to check satisfiability of the constrained Horn clauses associated"
+     ^ "to the reachability problem.";
    | UNSATISFIABLE -> "The two programs are contextually equivalent."
 
 let get_chc_z3_str (lchc,_,smtenv) =
@@ -172,10 +172,10 @@ let check_sat_chc_str str =
   Z3.toggle_warning_messages true;
   let ctx = Z3.mk_context [] in
   let fixedpoint = Z3.Fixedpoint.mk_fixedpoint ctx in
-let params = Z3.Params.mk_params ctx in
-let symbol = Z3.Symbol.mk_string ctx  "spacer.gpdr" in
-Z3.Params.add_bool params symbol true;
-Z3.Fixedpoint.set_parameters fixedpoint params;
+  let params = Z3.Params.mk_params ctx in
+  let symbol = Z3.Symbol.mk_string ctx  "spacer.gpdr" in
+  Z3.Params.add_bool params symbol true;
+  Z3.Fixedpoint.set_parameters fixedpoint params;
   let query = List.hd (Z3.Fixedpoint.parse_string fixedpoint str) in
   Debug.print_debug "Z3 fixedpoint internal representation:";
   Debug.print_debug (Z3.Fixedpoint.to_string fixedpoint);
@@ -183,8 +183,8 @@ Z3.Fixedpoint.set_parameters fixedpoint params;
   match result with
   | SATISFIABLE -> "The two programs are not contextually equivalent."
   | UNKNOWN -> Debug.print_debug (Z3.Fixedpoint.get_reason_unknown fixedpoint);
-    "Z3 failed to check satisfiability of the constrained Horn clauses associated
-              to the reachability problem.";
+    "Z3 failed to check satisfiability of the constrained Horn clauses associated"
+    ^ "to the reachability problem.";
   | UNSATISFIABLE -> "The two programs are contextually equivalent."
 
   
@@ -192,16 +192,16 @@ let check_sat_chc_file file =
   Z3.toggle_warning_messages true;
   let ctx = Z3.mk_context [] in
   let fixedpoint = Z3.Fixedpoint.mk_fixedpoint ctx in
-let params = Z3.Params.mk_params ctx in
-let symbol = Z3.Symbol.mk_string ctx  "spacer.gpdr" in
-Z3.Params.add_bool params symbol true;
-Z3.Fixedpoint.set_parameters fixedpoint params;
+  let params = Z3.Params.mk_params ctx in
+  let symbol = Z3.Symbol.mk_string ctx  "spacer.gpdr" in
+  Z3.Params.add_bool params symbol true;
+  Z3.Fixedpoint.set_parameters fixedpoint params;
   let query = List.hd (Z3.Fixedpoint.parse_file fixedpoint file) in
-   Debug.print_debug "Z3 fixedpoint parameters:";
+  Debug.print_debug "Z3 fixedpoint parameters:";
   Debug.print_debug (Z3.Fixedpoint.get_help fixedpoint);
-   Debug.print_debug "Z3 fixedpoint param:";
+  Debug.print_debug "Z3 fixedpoint param:";
   Debug.print_debug (Z3.Params.ParamDescrs.to_string (Z3.Fixedpoint.get_param_descrs fixedpoint));  
-   Debug.print_debug "Z3 fixedpoint options:";
+  Debug.print_debug "Z3 fixedpoint options:";
   Debug.print_debug (Z3.Params.ParamDescrs.to_string (Z3.Fixedpoint.get_param_descrs fixedpoint));  
   Debug.print_debug "Z3 fixedpoint internal representation:";
   Debug.print_debug (Z3.Fixedpoint.to_string fixedpoint);
@@ -209,6 +209,6 @@ Z3.Fixedpoint.set_parameters fixedpoint params;
   match result with
   | SATISFIABLE -> "The two programs are not contextually equivalent."
   | UNKNOWN -> Debug.print_debug (Z3.Fixedpoint.get_reason_unknown fixedpoint);
-    "Z3 failed to check satisfiability of the constrained Horn clauses associated
-         to the reachability problem.";
+    "Z3 failed to check satisfiability of the constrained Horn clauses associated"
+    ^ "to the reachability problem.";
   | UNSATISFIABLE -> "The two programs are contextually equivalent." 

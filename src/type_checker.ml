@@ -31,7 +31,7 @@ let rec typing vctx lctx expr = match expr with
     let (_,vctx1) = of_type vctx lctx e1 TBool in
     let (ty2,vctx2) = typing vctx1 lctx e2 in
     let (ty3,vctx3) = typing vctx2 lctx e3 in
-    begin match unify_type [] (ty2,ty3) with
+    begin match unify_type Pmap.empty (ty2,ty3) with
       | Some (ty,lsubst) -> (ty,lsubst_vctx lsubst vctx3)
       | None -> failwith ("Error typing " ^(Syntax.string_of_exprML expr) ^ ": "
                           ^(string_of_typeML ty2) ^ " is not equal to "
@@ -39,52 +39,59 @@ let rec typing vctx lctx expr = match expr with
     end
   | Fun ((var,TUndef),e) ->
     let tvar = fresh_typevar () in
-    let (ty',vctx') = typing ((var,tvar)::vctx) lctx e in
-    let ty = List.assoc var vctx' in
-    (TArrow (ty,ty'),vctx')
+    let (ty',vctx') = typing (Pmap.modadd_pmap (var,tvar) vctx) lctx e in
+    begin match Pmap.lookup_pmap var vctx' with
+      | Some ty -> (TArrow (ty,ty'),vctx')
+      | None -> failwith ("Variable " ^ var ^ " not found.")
+    end
   | Fun ((var,ty),e) ->
-    let (ty',vctx') = typing ((var,ty)::vctx) lctx e in
+    let (ty',vctx') = typing (Pmap.modadd_pmap (var,ty) vctx) lctx e in
     (TArrow (ty,ty'),vctx')
   | Fix ((idfun,TUndef),(var,TUndef),e) ->
     let tvar1 = fresh_typevar () in
     let tvar2 = fresh_typevar () in
-    let (rty,vctx') = typing ((var,tvar1)::(idfun,TArrow (tvar1,tvar2))::vctx) lctx e in
-    let aty = List.assoc var vctx' in
-    let fty = List.assoc idfun vctx' in
-    begin match unify_type [] (fty,TArrow (aty,rty)) with
-      | Some (ty,lsubst) -> (ty,lsubst_vctx lsubst vctx')
-      | None -> failwith ("Error typing " ^(Syntax.string_of_exprML expr) ^ ": "
-                          ^(string_of_typeML fty) ^ " is not equal to "
-                          ^(string_of_typeML (TArrow (aty,rty))))
-    end
+    let (rty,vctx') = typing (Pmap.modadd_pmap2 (var,tvar1) (idfun,TArrow (tvar1,tvar2)) vctx) lctx e in
+    begin match (Pmap.lookup_pmap var vctx',Pmap.lookup_pmap idfun vctx') with
+      | (Some aty, Some fty) ->
+        begin match unify_type Pmap.empty (fty,TArrow (aty,rty)) with
+          | Some (ty,lsubst) -> (ty,lsubst_vctx lsubst vctx')
+          | None -> failwith ("Error typing " ^(Syntax.string_of_exprML expr) ^ ": "
+                              ^(string_of_typeML fty) ^ " is not equal to "
+                              ^(string_of_typeML (TArrow (aty,rty))))
+        end
+      | _ -> failwith "Variables not found"
+      end
   | Fix ((idfun,TUndef),(var,aty),e) ->
     let tvar2 = fresh_typevar () in
-    let (rty,vctx') = typing ((var,aty)::(idfun,TArrow (aty,tvar2))::vctx) lctx e in
-    let fty = List.assoc idfun vctx' in
-    begin match unify_type [] (fty,TArrow (aty,rty)) with
-      | Some (ty,lsubst) -> (ty,lsubst_vctx lsubst vctx')
-      | None -> failwith ("Error typing " ^(Syntax.string_of_exprML expr) ^ ": "
-                          ^(string_of_typeML fty) ^ " is not equal to "
-                          ^(string_of_typeML (TArrow (aty,rty))))
-    end
+    let (rty,vctx') = typing (Pmap.modadd_pmap2 (var,aty) (idfun,TArrow (aty,tvar2)) vctx) lctx e in
+    begin match Pmap.lookup_pmap idfun vctx' with
+      | Some fty -> 
+        begin match unify_type Pmap.empty (fty,TArrow (aty,rty)) with
+          | Some (ty,lsubst) -> (ty,lsubst_vctx lsubst vctx')
+          | None -> failwith ("Error typing " ^(Syntax.string_of_exprML expr) ^ ": "
+                              ^(string_of_typeML fty) ^ " is not equal to "
+                              ^(string_of_typeML (TArrow (aty,rty))))
+        end
+      | None -> failwith ("Variable " ^ idfun ^ " not found.")
+      end
   | Fix ((idfun,fty),(var,aty),e) ->
-    let (rty,vctx') =  typing ((var,aty)::(idfun,fty)::vctx) lctx e in
-    begin match unify_type [] (fty,TArrow (aty,rty)) with
+    let (rty,vctx') =  typing (Pmap.modadd_pmap2 (var,aty) (idfun,fty) vctx) lctx e in
+    begin match unify_type Pmap.empty (fty,TArrow (aty,rty)) with
       | Some (ty,lsubst) -> (ty,lsubst_vctx lsubst vctx')
       | None -> failwith ("Error typing " ^(Syntax.string_of_exprML expr) ^ ": "
                           ^(string_of_typeML fty) ^ " is not equal to "
                           ^(string_of_typeML (TArrow (aty,rty))))
     end
-  | Let (var,e1,e2) -> let (ty,vctx') = typing vctx lctx e1 in typing ((var,ty)::vctx') lctx e2
+  | Let (var,e1,e2) -> let (ty,vctx') = typing vctx lctx e1 in typing (Pmap.modadd_pmap (var,ty) vctx') lctx e2
   | LetPair (var1,var2,e1,e2) ->
     let (ty,vctx') = typing vctx lctx e1 in
     begin match ty with
-      | TProd (ty1,ty2) -> typing ((var1,ty1)::(var2,ty2)::vctx') lctx e2
+      | TProd (ty1,ty2) -> typing (Pmap.modadd_pmap2 (var1,ty1) (var2,ty2) vctx') lctx e2
       | TVar tvar ->
         let tvar1 = fresh_typevar () in
         let tvar2 = fresh_typevar () in
         let vctx'' = subst_vctx tvar (TProd (tvar1,tvar2)) vctx' in
-        typing ((var1,tvar1)::(var2,tvar2)::vctx'') lctx e2
+        typing (Pmap.modadd_pmap2 (var1,tvar1) (var2,tvar2) vctx'') lctx e2
       | _ -> failwith ("Error typing " ^ (Syntax.string_of_exprML expr)
                        ^ " : " ^ (string_of_typeML ty) ^ " is not a product type")
     end
@@ -99,7 +106,7 @@ let rec typing vctx lctx expr = match expr with
         let tvar = fresh_typevar () in
         (tvar,subst_vctx a (TArrow (aty,tvar)) vctx'')
       | TArrow (ty',ty) ->
-        begin match unify_type [] (ty',aty) with
+        begin match unify_type Pmap.empty (ty',aty) with
           | Some (_,lsubst) -> (ty,lsubst_vctx lsubst vctx'')
           | None -> failwith ("Error typing " ^ (Syntax.string_of_exprML expr) ^ ": "
                               ^ (string_of_typeML ty') ^ " is not equal to "
@@ -159,6 +166,6 @@ and of_type_bin vctx lctx com_ty expr1 expr2 res_ty =
     | (_,_) -> raise (TypingError ((string_of_typeML ty2) ^ " is not equal to " ^(string_of_typeML com_ty)))
 
 let typing_full polyflag expr =
-  let (ty,_) = typing [] [] expr in
+  let (ty,_) = typing Pmap.empty Pmap.empty expr in
   if polyflag then ty
   else close_type TInt ty

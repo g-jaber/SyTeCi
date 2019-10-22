@@ -50,26 +50,27 @@ let () =
      ("-poly", Set poly,"Allow polymorphic reasoning (Experimental)");
      ("-no-ext-reason", Clear ext_reason, "Forbid the initial extensional reasoning on values");
     ] in
-  let usage_msg = "Usage: ./syteci filename1 filename2 [options] where the options are:" in
+  let usage_msg = "Usage: syteci filename1 filename2 [options]" in
   let get_filename str =
     match !number_filename with
     | 0 -> filename1 := str; number_filename := !number_filename+1;
     | 1 -> filename2 := str; number_filename := !number_filename+1;
-    | _ -> failwith ("Error: too many filenames have been provided. \n"^ usage_msg);
+    | _ -> Error.fail_error ("Error: too many filenames have been provided. \n"^ usage_msg);
   in
   let check_number_filenames () =
     if !number_filename < 2 then
-      failwith ("Error: two filenames containing the programs to be compared"
-        ^ "should have been provided. \n"^ usage_msg);
+      Error.fail_error ("Error: two filenames containing the programs to be compared "
+        ^ "should have been provided. "^ usage_msg);
   in
   parse speclist get_filename usage_msg;
   check_number_filenames ();
   let (expr1,ty1) = get_term "first" !poly !filename1 in
   let (expr2,ty2) = get_term "second" !poly !filename2 in
-  if ty1 <> ty2 then failwith ("Error: the first program is of type "
-                               ^ (Syntax.string_of_typeML ty1)
-                               ^ " while the second program is of type "
-                               ^ (Syntax.string_of_typeML ty2) ^ ".");
+  if ty1 <> ty2 then 
+    Error.fail_error ("Error: the first program is of type "
+      ^ (Syntax.string_of_typeML ty1)
+      ^ " while the second program is of type "
+      ^ (Syntax.string_of_typeML ty2) ^ ".");
   let tc = Tcstruct.build_tc !ext_reason !asym_unfold ty1 expr1 expr2 !si_j !si_k  in
   if !print_dg then begin
     print_endline ("Inference Graph:");

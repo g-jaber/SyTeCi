@@ -153,7 +153,7 @@ let rec freshen_expr env e = match e with
     begin match Pmap.lookup_pmap x env with
       | Some y -> (Var y,env)  (* We may have to use another sort for Locations *)
       | None -> let y = fresh_lvar () in
-                (Var y,(x,y)::env)
+                (Var y,Pmap.modadd_pmap (x,y) env)
     end
   | Int _ | Bool _ -> (e,env)
   | Plus (e1,e2) | Minus (e1,e2) | Mult (e1,e2) | Div (e1,e2) ->
@@ -191,7 +191,7 @@ let rec freshen_symb_heap env h = match h with
     ((x,e')::h'',env'')
 
 let freshen_inv (h1,h2,preds1,preds2) =
-  let (h1',env) = freshen_symb_heap [] h1 in
+  let (h1',env) = freshen_symb_heap Pmap.empty h1 in
   let (h2',env') = freshen_symb_heap env h2 in
   let (preds1',env'') = freshen_pred env' preds1 in
   let (preds2',env''') = freshen_pred env'' preds2 in

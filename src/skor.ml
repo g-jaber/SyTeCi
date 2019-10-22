@@ -61,12 +61,12 @@ type sequent = { id : id_sequent;
                  formula : formula
                }
 
-let create_sequent ?(ground_var_ctx=[]) j k formula =
-  { id = fresh_id_sequent (); ground_var_ctx = ground_var_ctx; alpha = []; arith_ctx = [];
+let create_sequent ?(ground_var_ctx=Pmap.empty) j k formula =
+  { id = fresh_id_sequent (); ground_var_ctx = ground_var_ctx; alpha = Pmap.empty; arith_ctx = [];
     j = j; k = k; formula = formula }
 
-let update_sequent sequent ground_var_ctx ?(alpha=[]) ?(arith_ctx=[])
+let update_sequent sequent ground_var_ctx ?(alpha=Pmap.empty) ?(arith_ctx=[])
     ?(j=sequent.j) ?(k=sequent.k) formula =
-  { id = fresh_id_sequent (); ground_var_ctx = ground_var_ctx@sequent.ground_var_ctx;
-    alpha = alpha@sequent.alpha; arith_ctx = arith_ctx@sequent.arith_ctx;
+  { id = fresh_id_sequent (); ground_var_ctx = Pmap.union ground_var_ctx sequent.ground_var_ctx;
+    alpha = Pmap.union alpha sequent.alpha; arith_ctx = arith_ctx@sequent.arith_ctx;
     j = j; k = k; formula = formula }

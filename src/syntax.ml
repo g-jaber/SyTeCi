@@ -50,7 +50,7 @@ let string_of_vars =
   let aux = function
     | TUndef -> "undef"
     | ty -> "::" ^ (string_of_typeML ty)
-  in string_of_pmap "" aux
+  in string_of_pmap "" aux ""
 
 let count_typevar = ref 0
 let fresh_typevar () =
@@ -69,13 +69,13 @@ let rec subst_type tvar sty ty = match ty with
   | TUndef -> failwith "Error: undefined type, please report."
 
 let subst_vctx tvar sty =
-  List.map (fun (x,ty) -> (x,subst_type tvar sty ty))
+  Pmap.map (fun ty -> subst_type tvar sty ty)
 
 let lsubst_type lsubst ty =
-  List.fold_left (fun ty (tvar,sty) -> subst_type tvar sty ty) ty lsubst
+  Pmap.fold (fun ty (tvar,sty) -> subst_type tvar sty ty) ty lsubst
 
 let lsubst_vctx lsubst =
-  List.map (fun (x,ty) -> (x,lsubst_type lsubst ty))
+  Pmap.map (fun ty -> lsubst_type lsubst ty)
 
 let rec unify_type lsubst = function
   | (TUnit,TUnit) -> Some (TUnit, lsubst)
@@ -117,17 +117,17 @@ let rec unify_type lsubst = function
         end
     end
   | ((TVar tvar1) as ty1,TVar tvar2) when tvar1 = tvar2 -> Some (ty1, lsubst)
-  | ((TVar _) as ty1,TVar tvar2) -> Some (ty1, (tvar2,ty1)::lsubst)
+  | ((TVar _) as ty1,TVar tvar2) -> Some (ty1, modadd_pmap (tvar2,ty1) lsubst)
   | (TVar tvar,ty) | (ty, TVar tvar) ->
     begin match lookup_pmap tvar lsubst with
-      | None -> Some (ty, (tvar,ty)::lsubst)
+      | None -> Some (ty, modadd_pmap (tvar,ty) lsubst)
       | Some ty' ->
         begin match unify_type lsubst (ty,ty') with
           | None ->
             Debug.print_debug ("Cannot unify " ^ (string_of_typeML ty)
                                ^ " and " ^ (string_of_typeML ty'));
             None
-          | Some (ty'',lsubst'') -> Some (ty'', (tvar,ty'')::lsubst'')
+          | Some (ty'',lsubst'') -> Some (ty'', modadd_pmap (tvar,ty'') lsubst'')
         end
     end
   | (ty1,ty2) ->
@@ -388,7 +388,7 @@ type full_expr = exprML*functional_env
 
 let string_of_full_expr (expr,gamma) =
   "(" ^ (string_of_exprML expr) ^ ",[" ^
-  (string_of_pmap "->" string_of_exprML gamma) ^ "])"
+  (string_of_pmap "->" string_of_exprML "" gamma) ^ "])"
 
 (* Evaluation Contexts *)
 
@@ -424,7 +424,7 @@ let rec extract_ctx expr = match expr with
     extract_ctx_bin (fun (x,y) -> Assign (x,y)) expr1 expr2
   | expr ->
     failwith ("Error: trying to extract an evaluation context from "
-              ^ (string_of_exprML expr))
+              ^ (string_of_exprML expr) ^ ". Please report.")
 
 and extract_ctx_bin cons_op expr1 expr2 =
   match (isval expr1, isval expr2) with
@@ -443,11 +443,11 @@ let extract_call expr =
   match expr' with
   | App (Var f,expr'') -> (f,expr'',ctx)
   | _ -> failwith ("Error : " ^ (string_of_exprML expr')
-                   ^ " is not a call to a function")
+                   ^ " is not a call to a function. Please report.")
 
 let extract_body = function
-  | Fun ((var,_),expr) -> (var,(expr,[]))
-  | Fix ((idfun,_),(var,_),expr) as fullexpr -> (var,(expr,[idfun,fullexpr]))
+  | Fun ((var,_),expr) -> (var,(expr,Pmap.empty))
+  | Fix ((idfun,_),(var,_),expr) as fullexpr -> (var,(expr,Pmap.singleton (idfun,fullexpr)))
   | expr -> failwith ("Error: " ^ (string_of_exprML expr)
                       ^ " is not a function. Please report.")
 
@@ -460,6 +460,4 @@ let string_of_eval_context ctx = string_of_exprML ctx
 
 type symbheap =  (id,exprML) pmap
 
-let string_of_symb_heap = function
-  | [] -> "ε"
-  | heap -> "[" ^ (string_of_pmap "↪" string_of_exprML heap) ^ "]"
+let string_of_symb_heap = string_of_pmap "↪" string_of_exprML "ε"

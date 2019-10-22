@@ -31,7 +31,7 @@ let modality_from_annot (tag,h1,h2,h3,h4) =
         | Intern -> NextI (h1,h2,h3,h4)
         | Extern -> NextE (h1,h2,h3,h4)
         | WB -> NextWB (h1,h2,h3,h4)
-        | Wrong -> failwith "Error: Cannot create a modality from the tag Wrong."
+        | Wrong -> failwith "Error: Cannot create a modality from the tag Wrong. Pleae report."
 
 let string_of_modality = function
   | Square -> "▫V"

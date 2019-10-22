@@ -5,7 +5,7 @@ open Skor
 
 type gsubst = (id,exprML) pmap
 
-let string_of_gsubst = string_of_pmap "=" string_of_exprML
+let string_of_gsubst = string_of_pmap "=" string_of_exprML ""
 
 let rec is_ground_term vars = function
   | Var x -> begin match lookup_pmap x vars with
@@ -147,11 +147,11 @@ let unif_sequent flag sequent_1 sequent_2 =
           Some (gsubst11@gsubst21,gsubst12@gsubst22,sequent')
         | (Some ([],gsubst11,[],_),Some ([],gsubst21,[],_),true) ->
           Some (gsubst11@gsubst21,[],sequent_2)
-        | (Some _,Some _,true) -> failwith "Error in unif_sequent"
+        | (Some _,Some _,true) -> failwith "Error in unif_sequent. Please report."
         | (_,_,_) -> None
       end
     end
-  | _ -> failwith "Cannot unify sequents whose SKOR is not RelSI"
+  | _ -> failwith "Cannot unify sequents whose SKOR is not RelSI. Please report."
 
 let unif_in_hist sequent hist =
   let hist' = List.filter (fun (seq,_) -> seq.j > sequent.j) hist in

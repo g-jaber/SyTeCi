@@ -80,7 +80,7 @@ let indexing_pmap index pmap =
       let i =
         try IndexVar.find x index with
           Not_found ->
-          failwith ("One of the program is allocating a reference"
+          Error.fail_error ("One of the program is allocating a reference"
           ^ " inside the body of a function. The generation of the"
           ^ " Constrained Horn Clause doo not handle this case.")
       in
@@ -90,8 +90,9 @@ let indexing_pmap index pmap =
   let rec aux2 i =
     if i < n then begin
       match tab.(i) with
-      | None -> failwith ("Error: Trying to access the index " ^ (string_of_int i)
-                          ^ " which does not exists. Please report.")
+      | None -> 
+        Error.fail_error ("Error: Trying to access the index " ^ (string_of_int i)
+        ^ " which does not exists. Please report.")
       | Some v -> v::(aux2 (i+1))
     end else [] in
   aux pmap; aux2 0
@@ -279,11 +280,11 @@ let extract_init_trans sr =
   | [(OT (s,OI) as trans)] ->
     begin match get_ltrans sr.trans_fun s with
       | PT (_,([],[],h1,h2,_,_,_))::_ -> (h1,h2,trans)
-      | _ ->  failwith "Error in the generation of the CHC:
+      | _ ->  Error.fail_error "Error in the generation of the CHC:
                         The OQ initial transition is not followed by a Player transition."
     end
-    | [] -> failwith "Error in the generation of the CHC: Empty STS. Please report."
-    | _ -> failwith "Error in the generation of the CHC:
+    | [] -> Error.fail_error "Error in the generation of the CHC: Empty STS. Please report."
+    | _ -> Error.fail_error "Error in the generation of the CHC:
                      Too many initial transitions. Please report."
 
 let visit_sr_full sr =

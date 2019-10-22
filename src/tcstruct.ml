@@ -1,6 +1,5 @@
 open Logic
 open Syntax
-open Pmap
 open Skor
 open Unif
 
@@ -118,12 +117,12 @@ let rec mix_lists g list1 = function
 
 
 let rec symb_val = function
-  | TUnit -> [(Unit,empty_pmap,empty_pmap)]
-  | TBool -> [(Bool true,empty_pmap,[]);(Bool false,empty_pmap,[])]
+  | TUnit -> [(Unit,Pmap.empty,Pmap.empty)]
+  | TBool -> [(Bool true,Pmap.empty,Pmap.empty);(Bool false,Pmap.empty,Pmap.empty)]
   | TInt ->
     let x = (Logic.fresh_lvar ()) in
-    [(Var x, empty_pmap, [(x,TInt)])]
-  | (TArrow (_,_)) as ty -> let x = Logic.fresh_lvar () in  [(Var x, [(x,ty)],empty_pmap)]
+    [(Var x, Pmap.empty, [(x,TInt)])]
+  | (TArrow (_,_)) as ty -> let x = Logic.fresh_lvar () in  [(Var x, [(x,ty)],Pmap.empty)]
   | TProd (ty1,ty2) ->
     let result1 = symb_val ty1 in
     let result2 = symb_val ty2 in
@@ -137,7 +136,7 @@ let rec symb_val = function
   | TVar _ ->
     Debug.print_debug "Generating symbolic value for a type variable";
     let x = (Logic.fresh_lvar ()) in
-    [(Var x, empty_pmap, [(x,TInt)])]
+    [(Var x, Pmap.empty, [(x,TInt)])]
   | TUndef -> failwith "Error, undefined type ! Pleaser report."
 
 type 'a result_build_tc =

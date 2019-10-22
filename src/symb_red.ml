@@ -3,7 +3,9 @@ open Logic
 open Pmap
 
 
-let add_locvar heap v = let l = fresh_locvar () in (l,(l,v)::heap)
+type symbconf = exprML*symbheap*symbheap
+
+let add_locvar heap v = let l = fresh_locvar () in (l,Pmap.add (l,v) heap)
 
 let aux g (a,b,c,d,e,f) = (g a,b,c,d,e,f)
 
@@ -75,18 +77,18 @@ let rec symbred heapPost expr = match expr with
   | Deref (Var l) -> begin match lookup_pmap l heapPost with
                        | Some value -> ([(value,[],[],heapPost,[], [])],true)
                        | None -> let x = Logic.fresh_lvar () in
-                                 let heapPre = [(l,Var x)] in ([(Var x,[],heapPre,heapPre@heapPost,[(x,TInt)], [])],true) (* Fix This *)
+                                 let heapPre = Pmap.singleton (l,Var x) in ([(Var x,[],heapPre,Pmap.union heapPre heapPost,[(x,TInt)], [])],true) (* Fix This *)
                      end
   | Deref expr -> let (result,b) = symbred heapPost expr in (List.map (aux (fun x -> (Deref x))) result,b)
   | Assign (Var l,expr2) when (isval expr2) ->
       begin match lookup_pmap l heapPost with
-        | Some _ ->  ([(Unit,[],[],modadd_pmap l expr2 heapPost,[], [])],true)
+        | Some _ ->  ([(Unit,[],[],modadd_pmap (l,expr2) heapPost,[], [])],true)
         | None -> let x = Logic.fresh_lvar () in
-                  let heapPre = [(l,Var x)] in ([(Unit,[],heapPre,modadd_pmap l expr2 heapPost,[(x,TInt)], [])],true)
+                  let heapPre = [(l,Var x)] in ([(Unit,[],heapPre,modadd_pmap (l,expr2) heapPost,[(x,TInt)], [])],true)
       end
   | Assign (expr1,expr2) ->  aux_bin_red (symbred heapPost) (fun (x,y) -> Assign (x,y)) (expr1,expr2)
   | If (Bool b,expr1,expr2) -> if b then ([(expr1,[],[],heapPost,[], [])],true) else ([(expr2,[],[],heapPost,[], [])],true)
-  | If ((Var _),_,_) -> failwith "Error: Boolean variables are not allowed in the symbolic reduction"
+  | If ((Var _),_,_) -> failwith "Error: Boolean variables are not allowed in the symbolic reduction. Please report."
   | If (expr,expr1,expr2) -> let (result,b) = symbred heapPost expr in (List.map (aux (fun x -> (If (x,expr1,expr2)))) result,b)
   | Plus _ | Minus _ | Mult _ | Div _ -> aux_bin_arith expr heapPost (symbred heapPost)
   | And _ | Or _ -> aux_bin_bool expr heapPost (symbred heapPost)

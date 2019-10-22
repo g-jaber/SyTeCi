@@ -1,12 +1,14 @@
 # SyTeCi: Automating contextual equivalence for higher-order programs with references
 
-This prototype, written in OCaml, generates, from two programs M1,M2 written in a fragment of ML, the Structured-Memory Transition Machine A_S as described in this [paper](https://guilhem.jaber.fr/syteci/draft.pdf).
+This prototype, written in OCaml, generates, from two programs $M_1,M_2$ written in a fragment of ML, the Structured-Memory Transition Machine $A_S$ as described in this [paper](https://guilhem.jaber.fr/syteci/draft.pdf).
+It is represented using the dot format of [graphviz](https://www.graphviz.org/).
 
-One can then check that no failed states are reachable to prove that M1,M2 are contextually equivalent.
+One can then check that no failed states are reachable in $A_S$ to prove that $M_1,M_2$ are contextually equivalent.
 
-In the restricted fragment described in the paper cited above, the prototype can also generates the set of constrained Horn clauses corresponding to the non-reachability of failed states of A_S.
+In the restricted fragment described in the paper cited above, the prototype can also generates the set of constrained Horn clauses corresponding to the non-reachability of failed states of $A_S$.
 These contrained Horn clauses are written in an extension of the SMT-LIB2 formate described [here](https://rise4fun.com/Z3/tutorialcontent/fixedpoints), than can be checked by the SMT-sover [z3](https://github.com/Z3Prover/z3).
 
+A webpage to test the prototype is available [here](http://guilhem.jaber.fr/syteci/).
 
 ## Compilation
 

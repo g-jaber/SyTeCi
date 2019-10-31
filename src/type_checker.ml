@@ -96,8 +96,8 @@ let rec typing vctx lctx expr = match expr with
                        ^ " : " ^ (string_of_typeML ty) ^ " is not a product type")
     end
   | App (e1,e2) ->
-    let (fty,vctx') = typing vctx lctx e1 in
-    let (aty,vctx'') = typing vctx' lctx e2 in
+    let (aty,vctx') = typing vctx lctx e2 in
+    let (fty,vctx'') = typing vctx' lctx e1 in
     Debug.print_debug ("Typing App:" ^ (Syntax.string_of_exprML expr));
     Debug.print_debug ((Syntax.string_of_exprML e1) ^ " is of type " ^ (string_of_typeML fty));
     Debug.print_debug ((Syntax.string_of_exprML e2) ^ " is of type " ^ (string_of_typeML aty));
@@ -152,7 +152,7 @@ and of_type vctx lctx expr resty =
   match ty with
   | TVar tvar -> (resty,subst_vctx tvar resty vctx')
   | _ when ty = resty -> (ty,vctx')
-  | _ -> failwith ("Error  typing " ^ (Syntax.string_of_exprML expr) ^ " : " ^ ((string_of_typeML ty) ^ " is not equal to " ^(string_of_typeML resty)))
+  | _ -> failwith ("Error typing " ^ (Syntax.string_of_exprML expr) ^ " : " ^ ((string_of_typeML ty) ^ " is not equal to " ^(string_of_typeML resty)))
 
 and of_type_bin vctx lctx com_ty expr1 expr2 res_ty =
   let (ty1,vctx') = typing vctx lctx expr1 in

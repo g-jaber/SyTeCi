@@ -13,7 +13,7 @@ let kind_of_term funct_var_ctx (expr,gamma) =
   else begin let (f,v,ctx) = extract_call expr in
     begin match Pmap.lookup_pmap f funct_var_ctx with
       | None -> begin match Pmap.lookup_pmap f gamma with
-          | None -> failwith ("The variable " ^ f ^ " comes from nowhere.")
+          | None -> failwith ("The variable " ^ f ^ " comes from nowhere in " ^ (string_of_exprML expr))
           | Some valf -> IsRecCall (f,valf,v,ctx)
         end
       | Some ty -> IsCallExtern (f,ty,v,ctx)

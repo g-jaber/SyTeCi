@@ -5,9 +5,9 @@ let get_term nbprog poly filename =
   let inBuffer = open_in filename in
   let lineBuffer = Lexing.from_channel inBuffer in
   try let expr = Parser.prog Lexer.token lineBuffer in
-    Debug.print_debug (Syntax.string_of_exprML expr);
+    Debug.print_debug (nbprog ^ " program: " ^ Syntax.string_of_exprML expr);
     let ty = Type_checker.typing_full poly expr in
-    Debug.print_debug (Syntax.string_of_typeML ty);
+    Debug.print_debug ("His type is: " ^ Syntax.string_of_typeML ty);
     (expr,ty)
   with
   | Lexer.SyntaxError msg -> failwith ("Parsing Error in the " ^ nbprog

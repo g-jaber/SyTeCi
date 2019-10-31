@@ -24,7 +24,7 @@ let rec string_par_of_typeML = function
 | TUnit -> "Unit"
 | TInt -> "Int"
 | TBool -> "Bool"
-| TArrow (ty1,ty2) -> "(" ^ (string_of_typeML ty1) ^ "->"
+| TArrow (ty1,ty2) -> "(" ^ (string_par_of_typeML ty1) ^ "->"
                       ^ (string_of_typeML ty2) ^")"
 | TProd (ty1,ty2) -> "(" ^ (string_of_typeML ty1) ^ "*"
                      ^ (string_of_typeML ty2) ^ ")"

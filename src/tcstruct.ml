@@ -87,29 +87,41 @@ let rec string_of_list = function
   | [str] -> str
   | str::tl -> str ^ "," ^ (string_of_list tl)
 
-let rec string_of_tc = function
-  | Stop _ -> "Stop "
-  | RuleVG _ -> "RuleVG "
-  | LOut _ -> "LOut "
-  | ROut _ -> "LOut "
-  | RuleVProd ((tc1,tc2),_) -> "RuleVx (" ^ (string_of_tc tc1) ^ ","
-                               ^ (string_of_tc tc2) ^")"
-  | RuleV (tcs,_) ->  "RuleV (" ^ (string_of_list (List.map string_of_tc tcs)) ^")"
-  | RuleK (tcs,_) -> "RuleK (" ^ (string_of_list (List.map string_of_tc tcs)) ^")"
-  | RuleSext ((tc1,tc2),_) -> "RuleSext (" ^ (string_of_tc tc1) ^ ","
-                              ^ (string_of_tc tc2) ^")"
-  | RuleSwrong _ -> "Swrong "
-  | Unfold (tc',_) ->  "Unfold (" ^ (string_of_tc tc') ^")"
-  | LUnfold (tc',_) -> "LUnfold (" ^ (string_of_tc tc') ^")"
-  | RUnfold (tc',_) -> "RUnfold (" ^ (string_of_tc tc') ^")"
-  | RuleE (tcs,_) -> "RuleE ("
-                     ^ (string_of_list (List.map (fun (_,tc) -> (string_of_tc tc)) tcs))
-                     ^")"
-  | Rewrite (tc',_) -> "Rewrite (" ^ (string_of_tc tc')  ^")"
-  | Circ (_,_,_) -> "Circ "
-  | Gen (_,tc,_) -> "Gen (" ^ (string_of_tc tc) ^ ")"
-  | RuleInit (tcs,_)->  "RuleInit (" ^ (string_of_list (List.map string_of_tc tcs))
-                        ^")"
+let rec string_of_tc tc = 
+  let sequent = get_root tc in
+  let str_formula = Skor.string_of_formula sequent.formula in
+  match tc with
+  | Stop _ -> "Stop[" ^ str_formula ^ "]"
+  | RuleVG _ -> "RuleVG[" ^ str_formula ^ "]"
+  | LOut _ -> "LOut[" ^ str_formula ^ "]"
+  | ROut _ -> "LOut[" ^ str_formula ^ "]"
+  | RuleVProd ((tc1,tc2),_) -> 
+    "RuleVx[" ^ str_formula ^ "](" 
+    ^ (string_of_tc tc1) ^ ","^ (string_of_tc tc2) ^")"
+  | RuleV (tcs,_) -> 
+    "RuleV[" ^ str_formula ^ "](" 
+    ^ (string_of_list (List.map string_of_tc tcs)) ^")"
+  | RuleK (tcs,_) -> 
+    "RuleK[" ^ str_formula ^ "](" 
+    ^ (string_of_list (List.map string_of_tc tcs)) ^")"
+  | RuleSext ((tc1,tc2),_) -> 
+    "RuleSext[" ^ str_formula ^ "](" 
+    ^ (string_of_tc tc1) ^ "," ^ (string_of_tc tc2) ^")"
+  | RuleSwrong _ -> "Swrong[" ^ str_formula ^ "]"
+  | Unfold (tc',_) ->  "Unfold[" 
+  ^ str_formula ^ "](" ^ (string_of_tc tc') ^")"
+  | LUnfold (tc',_) -> "LUnfold[" 
+  ^ str_formula ^ "](" ^ (string_of_tc tc') ^")"
+  | RUnfold (tc',_) -> "RUnfold[" 
+  ^ str_formula ^ "](" ^ (string_of_tc tc') ^")"
+  | RuleE (tcs,_) -> 
+    "RuleE[" ^ str_formula ^ "]("
+    ^ (string_of_list (List.map (fun (_,tc) -> (string_of_tc tc)) tcs)) ^ ")"
+  | Rewrite (tc',_) -> "Rewrite[" ^ str_formula ^ "](" ^ (string_of_tc tc')  ^")"
+  | Circ (_,_,_) -> "Circ[" ^ str_formula ^ "]"
+  | Gen (_,tc,_) -> "Gen[" ^ str_formula ^ "](" ^ (string_of_tc tc) ^ ")"
+  | RuleInit (tcs,_)->  
+    "RuleInit[" ^ str_formula ^ "](" ^ (string_of_list (List.map string_of_tc tcs))^")"
 
 let rec mix_lists g list1 = function
   | [] -> []

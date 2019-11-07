@@ -331,4 +331,4 @@ let print_full_chc file (lchc,init_rel,env) =
    (* Printer.print_to_file file ("Constrained Horn Clause:"); *)
    print_smt_env file env;
    print_lchc_smtlib file lchc;
-   Printer.print_to_file file ("(query "^ init_rel ^ ":print-certificate true)")
+   Printer.print_to_file file ("(query "^ init_rel ^ ")")

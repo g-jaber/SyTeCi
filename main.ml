@@ -1,11 +1,11 @@
 open Arg
 
-let get_term nbprog poly filename =
+let get_term nbprog poly_tvar int_tvar filename =
   let inBuffer = open_in filename in
   let lineBuffer = Lexing.from_channel inBuffer in
   try let expr = Parser.prog Lexer.token lineBuffer in
     Debug.print_debug (nbprog ^ " program: " ^ Syntax.string_of_exprML expr);
-    let ty = Type_checker.typing_full poly expr in
+    let ty = Type_checker.typing_full poly_tvar int_tvar expr in
     Debug.print_debug ("His type is: " ^ Syntax.string_of_typeML ty);
     (expr,ty)
   with
@@ -33,7 +33,8 @@ let () =
   let print_chc = ref false in
   let check_chc = ref false in
   let file_chc = ref "" in
-  let poly = ref false in
+  let int_tvar = ref false in
+  let poly_tvar = ref false in
   let speclist =
     [("-cf",Set print_cf,"Print the temporal characteristic formula");
      ("-dg",Set print_dg,"Print the derivation graph");
@@ -47,7 +48,8 @@ let () =
      ("-chc", Set print_chc,"Print the translation of the reachability of failed states as a Constrained Horn Clause");
      ("-check-chc", Set check_chc,"Check the generated Constrained Horn Clause with z3 (Experimental)");
      ("-file-chc",Set_string file_chc, "Specify the file where to print the Constrained Horn Clause");
-     ("-poly", Set poly,"Allow polymorphic reasoning (Experimental)");
+     ("-int-type", Set int_tvar,"Substitute unconstrained type variables by Int rather than Unit");
+     ("-poly", Set poly_tvar,"Allow polymorphic reasoning (Experimental)");
      ("-no-ext-reason", Clear ext_reason, "Forbid the initial extensional reasoning on values");
     ] in
   let usage_msg = "Usage: syteci filename1 filename2 [options]" in
@@ -64,8 +66,8 @@ let () =
   in
   parse speclist get_filename usage_msg;
   check_number_filenames ();
-  let (expr1,ty1) = get_term "first" !poly !filename1 in
-  let (expr2,ty2) = get_term "second" !poly !filename2 in
+  let (expr1,ty1) = get_term "first" !poly_tvar !int_tvar !filename1 in
+  let (expr2,ty2) = get_term "second" !poly_tvar !int_tvar !filename2 in
   if ty1 <> ty2 then 
     Error.fail_error ("Error: the first program is of type "
       ^ (Syntax.string_of_typeML ty1)

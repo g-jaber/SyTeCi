@@ -263,7 +263,15 @@ let string_of_typed_var = function
   | (x,TUndef) -> x
   | (x,ty) -> "(" ^ x ^ ":" ^ (string_of_typeML ty) ^ ")"
 
-let rec string_of_exprML = function
+
+let rec string_par_of_exprML = function
+  | Var x -> x
+  | Loc l -> "l" ^ (string_of_int l)
+  | Unit -> "()"
+  | Int n -> string_of_int n
+  | e -> "(" ^ (string_of_exprML e) ^ ")" 
+
+and string_of_exprML = function
   | Var x -> x
   | Loc l -> "l" ^ (string_of_int l)
   | Unit -> "()"
@@ -311,8 +319,7 @@ let rec string_of_exprML = function
     "let (" ^ var1 ^ "," ^ var2 ^ ") = " ^ (string_of_exprML e1) ^ " in "
     ^ (string_of_exprML e2)
   | Seq (e1,e2) -> (string_of_exprML e1) ^ " ; " ^ (string_of_exprML e2)
-  | App (Var f,e2) -> f ^" " ^ (string_of_exprML e2)
-  | App (e1,e2) -> "(" ^ (string_of_exprML e1) ^ ")" ^ (string_of_exprML e2)
+  | App (e1,e2) -> (string_par_of_exprML e1) ^ " " ^ (string_par_of_exprML e2)
   | Pair (e1,e2) ->
     "(" ^ (string_of_exprML e1) ^ "," ^ (string_of_exprML e2) ^ ")"
   | Newref e -> "ref " ^ (string_of_exprML e)

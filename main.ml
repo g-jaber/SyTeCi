@@ -21,8 +21,8 @@ let () =
   let number_filename = ref 0 in
   let filename1 = ref "" in
   let filename2 = ref "" in
-  let si_j = ref 0 in
-  let si_k = ref 0 in
+  let si_j = ref 2 in
+  let si_k = ref 2 in
   let bounded_checking = ref false in
   let asym_unfold = ref false in
   let ext_reason = ref true in
@@ -39,9 +39,9 @@ let () =
     [("-cf",Set print_cf,"Print the temporal characteristic formula");
      ("-dg",Set print_dg,"Print the derivation graph");
      ("-debug",Set Debug.debug_mode,"Debug mode");
-     ("-j",Set_int si_j,"Fix the left step-index to n in order to control unfolding of recursive calls");
-     ("-k",Set_int si_k,"Fix the right step-index to n in order to control unfolding of recursive calls");
-     ("-bc",Set bounded_checking, "Enable bounded checking");
+     ("-j",Set_int si_j,"Fix the left step-index in order to control unfolding of recursive call of the first program (Default value is 2)");
+     ("-k",Set_int si_k,"Fix the right step-index in order to control unfolding of recursive calls of the first program (Default value is 2)");
+     ("-bc",Set bounded_checking, "Enable bounded checking (Experimental)");
      ("-au",Set asym_unfold, "Enable asymmetric unfolding of recursive calls");
      ("-smtm",Set print_sts, "Print the Structured-Memory Transition Machine");
      ("-file-smtm",Set_string file_sts, "Specify the file where to print the SMTM");
@@ -89,7 +89,7 @@ let () =
   let sr = Wts.build_sr !bounded_checking tc in
   Debug.print_debug "Computing the closure of the SMTM";
   let sr' = Wts_closure.sr_closure sr in
-  if !print_sts || (!file_sts <>"") then begin
+  if !print_sts || (!file_sts <> "") then begin
     Printer.refresh_file !file_sts;
     Wts_to_dot.dot_from_sr !file_sts sr';
   end;

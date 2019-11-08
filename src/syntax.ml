@@ -21,16 +21,16 @@ type var_ctx = (id,typeML) pmap
 type loc_ctx = (loc,typeML) pmap
 
 let rec string_par_of_typeML = function
-| TUnit -> "Unit"
-| TInt -> "Int"
-| TBool -> "Bool"
-| TArrow (ty1,ty2) -> "(" ^ (string_par_of_typeML ty1) ^ "->"
-                      ^ (string_of_typeML ty2) ^")"
-| TProd (ty1,ty2) -> "(" ^ (string_of_typeML ty1) ^ "*"
-                     ^ (string_of_typeML ty2) ^ ")"
-| TRef ty -> "(ref " ^ (string_of_typeML ty)^")"
-| TVar typevar -> typevar
-| TUndef -> "undef"
+  | TUnit -> "Unit"
+  | TInt -> "Int"
+  | TBool -> "Bool"
+  | TArrow (ty1,ty2) -> "(" ^ (string_par_of_typeML ty1) ^ "->"
+                        ^ (string_of_typeML ty2) ^")"
+  | TProd (ty1,ty2) -> "(" ^ (string_of_typeML ty1) ^ "*"
+                       ^ (string_of_typeML ty2) ^ ")"
+  | TRef ty -> "(ref " ^ (string_of_typeML ty)^")"
+  | TVar typevar -> typevar
+  | TUndef -> "undef"
 
 and string_of_typeML = function
   | TUnit -> "Unit"
@@ -58,6 +58,21 @@ let fresh_typevar () =
   count_typevar := !count_typevar + 1;
   TVar ("'a" ^ (string_of_int a))
 
+type type_subst = (id,typeML) pmap
+
+let rec apply_type_subst ty subst = match ty with
+  | TUnit | TInt | TBool | TRef _ -> ty
+  | TArrow (ty1,ty2) ->
+    TArrow (apply_type_subst ty1 subst, apply_type_subst ty2 subst)
+  | TProd (ty1,ty2) ->
+    TProd (apply_type_subst ty1 subst, apply_type_subst ty2 subst)
+  | TVar tvar ->
+    begin match Pmap.lookup_pmap tvar subst with
+      | Some ty' -> ty'
+      | None -> ty
+    end
+  | TUndef -> failwith "Error: undefined type, please report."
+
 let rec subst_type tvar sty ty = match ty with
   | TUnit | TInt | TBool | TRef _ -> ty
   | TArrow (ty1,ty2) ->
@@ -77,32 +92,32 @@ let lsubst_type lsubst ty =
 let lsubst_vctx lsubst =
   Pmap.map (fun ty -> lsubst_type lsubst ty)
 
-let rec unify_type lsubst = function
-  | (TUnit,TUnit) -> Some (TUnit, lsubst)
-  | (TInt,TInt) -> Some (TInt, lsubst)
-  | (TBool,TBool) -> Some (TBool, lsubst)
+let rec unify_type tsubst = function
+  | (TUnit,TUnit) -> Some (TUnit, tsubst)
+  | (TInt,TInt) -> Some (TInt, tsubst)
+  | (TBool,TBool) -> Some (TBool, tsubst)
   | (TRef ty1, TRef ty2) ->
-    begin match unify_type lsubst (ty1,ty2) with
+    begin match unify_type tsubst (ty1,ty2) with
       | None -> None
-      | Some (ty,lsubst') -> Some (TRef ty,lsubst')
+      | Some (ty,tsubst') -> Some (TRef ty,tsubst')
     end
   | (TArrow (ty11,ty12), TArrow (ty21,ty22)) ->
-    begin match unify_type lsubst (ty11,ty21) with
+    begin match unify_type tsubst (ty11,ty21) with
       | None ->
         Debug.print_debug ("Cannot unify " ^ (string_of_typeML ty11) ^ " and "
                            ^ (string_of_typeML ty21));
         None
-      | Some (ty1,lsubst') ->
-        begin match unify_type lsubst' (ty12,ty22) with
+      | Some (ty1,tsubst') ->
+        begin match unify_type tsubst' (ty12,ty22) with
           | None ->
             Debug.print_debug ("Cannot unify " ^ (string_of_typeML ty12)
                                ^ " and " ^ (string_of_typeML ty22));
             None
-          | Some (ty2,lsubst'') -> Some (TArrow (ty1,ty2),lsubst'')
+          | Some (ty2,tsubst'') -> Some (TArrow (ty1,ty2),tsubst'')
         end
     end
   | (TProd (ty11,ty12), TProd (ty21,ty22)) ->
-    begin match unify_type lsubst (ty11,ty21) with
+    begin match unify_type tsubst (ty11,ty21) with
       | None ->
         Debug.print_debug ("Cannot unify " ^ (string_of_typeML ty11) ^ " and "
                            ^ (string_of_typeML ty21));
@@ -116,13 +131,13 @@ let rec unify_type lsubst = function
           | Some (ty2,lsubst'') -> Some (TProd (ty1,ty2),lsubst'')
         end
     end
-  | ((TVar tvar1) as ty1,TVar tvar2) when tvar1 = tvar2 -> Some (ty1, lsubst)
-  | ((TVar _) as ty1,TVar tvar2) -> Some (ty1, modadd_pmap (tvar2,ty1) lsubst)
+  | ((TVar tvar1) as ty1,TVar tvar2) when tvar1 = tvar2 -> Some (ty1, tsubst)
+  | ((TVar _) as ty1,TVar tvar2) -> Some (ty1, modadd_pmap (tvar2,ty1) tsubst)
   | (TVar tvar,ty) | (ty, TVar tvar) ->
-    begin match lookup_pmap tvar lsubst with
-      | None -> Some (ty, modadd_pmap (tvar,ty) lsubst)
+    begin match lookup_pmap tvar tsubst with
+      | None -> Some (ty, modadd_pmap (tvar,ty) tsubst)
       | Some ty' ->
-        begin match unify_type lsubst (ty,ty') with
+        begin match unify_type tsubst (ty,ty') with
           | None ->
             Debug.print_debug ("Cannot unify " ^ (string_of_typeML ty)
                                ^ " and " ^ (string_of_typeML ty'));
@@ -136,7 +151,8 @@ let rec unify_type lsubst = function
     None
 
 let rec close_type sty ty = match ty with
-  | TUnit | TInt | TBool | TRef _ -> ty
+  | TUnit | TInt | TBool -> ty
+  | TRef ty' -> TRef (close_type sty ty') 
   | TArrow (ty1,ty2) -> TArrow (close_type sty ty1, close_type sty ty2)
   | TProd (ty1,ty2) -> TProd (close_type sty ty1, close_type sty ty2)
   | TVar _ -> sty

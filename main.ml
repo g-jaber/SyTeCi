@@ -89,14 +89,14 @@ let () =
   let sr = Wts.build_sr !bounded_checking tc in
   Debug.print_debug "Computing the closure of the SMTM";
   let sr' = Wts_closure.sr_closure sr in
-  if !print_sts then begin
+  if !print_sts || (!file_sts != "") then begin
     Printer.refresh_file !file_sts;
     Wts_to_dot.dot_from_sr !file_sts sr';
   end;
   Debug.print_debug "Computing the Constrained Horn Clause";
-  if !print_chc || !check_chc then begin
+  if !print_chc || (!file_chc != "") || !check_chc then begin
     let full_chc = Chc.visit_sr_full sr' in
-    if !print_chc then begin
+    if !print_chc || (!file_chc != "") then begin
       Printer.refresh_file !file_chc;
       Chc.print_full_chc !file_chc full_chc;
     end;
@@ -105,4 +105,3 @@ let () =
       print_endline (Logic_to_z3.check_sat_chc_str str)
     end
   end
-

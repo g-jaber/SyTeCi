@@ -26,8 +26,8 @@ let rec string_par_of_typeML = function
   | TBool -> "Bool"
   | TArrow (ty1,ty2) -> "(" ^ (string_par_of_typeML ty1) ^ "->"
                         ^ (string_of_typeML ty2) ^")"
-  | TProd (ty1,ty2) -> "(" ^ (string_of_typeML ty1) ^ "*"
-                       ^ (string_of_typeML ty2) ^ ")"
+  | TProd (ty1,ty2) -> "(" ^ (string_par_of_typeML ty1) ^ "*"
+                       ^ (string_par_of_typeML ty2) ^ ")"
   | TRef ty -> "(ref " ^ (string_of_typeML ty)^")"
   | TVar typevar -> typevar
   | TUndef -> "undef"
@@ -39,7 +39,7 @@ and string_of_typeML = function
   | TArrow (ty1,ty2) ->
     (string_par_of_typeML ty1) ^ "->" ^ (string_of_typeML ty2)
   | TProd (ty1,ty2) ->
-    (string_of_typeML ty1) ^ "*" ^ (string_of_typeML ty2)
+    (string_par_of_typeML ty1) ^ "*" ^ (string_par_of_typeML ty2)
   | TRef ty -> "ref " ^ (string_of_typeML ty)
   | TVar typevar -> typevar
   | TUndef -> "undef"

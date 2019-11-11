@@ -33,7 +33,7 @@ let () =
   let print_chc = ref false in
   let check_chc = ref false in
   let file_chc = ref "" in
-  let int_tvar = ref false in
+  let unit_tvar = ref false in
   let poly_tvar = ref false in
   let speclist =
     [("-cf",Set print_cf,"Print the temporal characteristic formula");
@@ -48,7 +48,7 @@ let () =
      ("-chc", Set print_chc,"Print the translation of the reachability of failed states as a Constrained Horn Clause");
      ("-check-chc", Set check_chc,"Check the generated Constrained Horn Clause with z3 (Experimental)");
      ("-file-chc",Set_string file_chc, "Specify the file where to print the Constrained Horn Clause");
-     ("-int-type", Set int_tvar,"Substitute unconstrained type variables by Int rather than Unit");
+     ("-unit-type", Set unit_tvar,"Substitute unconstrained type variables by Unit rather than Int");
      ("-poly", Set poly_tvar,"Allow polymorphic reasoning (Experimental)");
      ("-no-ext-reason", Clear ext_reason, "Forbid the initial extensional reasoning on values");
     ] in
@@ -66,8 +66,8 @@ let () =
   in
   parse speclist get_filename usage_msg;
   check_number_filenames ();
-  let (expr1,ty1) = get_term "first" !poly_tvar !int_tvar !filename1 in
-  let (expr2,ty2) = get_term "second" !poly_tvar !int_tvar !filename2 in
+  let (expr1,ty1) = get_term "first" !poly_tvar !unit_tvar !filename1 in
+  let (expr2,ty2) = get_term "second" !poly_tvar !unit_tvar !filename2 in
   if ty1 <> ty2 then 
     Error.fail_error ("Error: the first program is of type "
       ^ (Syntax.string_of_typeML ty1)

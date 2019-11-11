@@ -192,8 +192,8 @@ and of_type_bin vctx lctx tsubst com_ty expr1 expr2 res_ty =
   | (_,_) when (ty1 <> com_ty) -> raise (TypingError ((string_of_typeML ty1) ^ " is not equal to " ^(string_of_typeML com_ty)))
   | (_,_) -> raise (TypingError ((string_of_typeML ty2) ^ " is not equal to " ^(string_of_typeML com_ty)))
 
-let typing_full polyflag intflag expr =
+let typing_full polyflag unitflag expr =
   let (ty,_,_) = typing Pmap.empty Pmap.empty Pmap.empty expr in
   if polyflag then ty
-  else if intflag then close_type TInt ty
-  else close_type TUnit ty
+  else if unitflag then close_type TUnit ty
+  else close_type TInt ty

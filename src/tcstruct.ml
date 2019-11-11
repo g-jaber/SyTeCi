@@ -429,7 +429,9 @@ let rec extensional_reasoning ty expr1 expr2 =
     let (env,(expr1,gamma1'),(expr2,gamma2'),ty) = extensional_reasoning ty2
         expr1 expr2 in
     ((var1,ty1)::env,(expr1,gamma1@gamma1'),(expr2,gamma2@gamma2'),ty)
-  | _ -> ([],(expr1,[]),(expr2,[]),ty)
+  | _ -> 
+    Debug.print_debug "No extensional reasoning performed";
+     ([],(expr1,[]),(expr2,[]),ty)
 
 let build_tc ext_reason asym_unfold ty expr1 expr2 step1 step2 =
   let skor = if ext_reason then begin

@@ -21,9 +21,14 @@ You can compile the program by either:
 
 To use SyTeCi, you first have to put the programs you want to compare in two different files "file1" and "file2".
 Then, you have to invoke the following command:
-`syteci file1 file2`
+`syteci -smtm -chc file1 file2`
+to generate:
+- the Structured-Memory Transition Machine (SMTM) in dot format;
+- the set of Constrained Horn Clauses (CHC) for the non-reachability of failed states in SMT2-LIB format.
+You may check this CHC with a solver like z3. If it is unsatisfiable, then the two programs are contextually equivalent.
+For recursion-free programs, we also have that if it is satisfiable, then the two programs are not contextually equivalent.
 
-You may find examples presented in the paper in the `testsuite/` directory.
+You may find examples (including the one presented in the paper) in the `testsuite/` directory.
 
 So for example, you can use
 `syteci -smtm -chc testsuite/wbsc/prog1.ml testsuite/wbsc/prog2.ml`

@@ -137,7 +137,14 @@ let rec typing vctx lctx tsubst expr = match expr with
   (*    if (ty = TUnit) then (typing vctx' lctx e2) else raise (TypingError ("Error typing " ^(Syntax.string_of_exprML expr) ^ ": " ^ (string_of_typeML ty) ^ "  is not equal to " ^(string_of_typeML TUnit)))*)
   | Pair (e1,e2) -> let (ty1,vctx',tsubst') = typing vctx lctx tsubst e1 in
     let (ty2,vctx'',tsubst'') = typing vctx' lctx tsubst' e2 in (TProd (ty1,ty2),vctx'',tsubst'')
-  | Newref e -> let (ty,vctx',tsubst') = typing vctx lctx tsubst e in (TRef ty,vctx',tsubst')
+  | Newref e -> 
+    let (ty ,vctx',tsubst')= typing vctx lctx tsubst e in
+    begin match ty with
+    | TVar a -> (TRef TInt,subst_vctx a TInt vctx',Pmap.modadd_pmap (a,TInt) tsubst')
+    | TInt -> (TRef ty,vctx',tsubst')
+    | _ -> Error.fail_error ("Error typing " ^(Syntax.string_of_exprML expr) ^ ": "
+                               ^ (string_of_typeML ty) ^ " is not of type int. Only integers can be stored in references.")
+  end
   | Deref e ->
     let (ty,vctx',tsubst') = typing vctx lctx tsubst e in
     begin match ty with
@@ -150,8 +157,8 @@ let rec typing vctx lctx tsubst expr = match expr with
     let (ty2,vctx'',tsubst'') = typing vctx' lctx tsubst' e2 in
     begin match (ty1,ty2) with
       | (TRef ty1',_) when ty1' = ty2 -> (TUnit,vctx'',tsubst'')
-      | (TRef ty1',TVar tvar) -> (TUnit,subst_vctx tvar ty1' vctx'',tsubst'')
-      | (TRef (TVar tvar),_) -> (TUnit,subst_vctx tvar ty2 vctx'',tsubst'')
+      | (TRef ty1',TVar a) -> (TUnit,subst_vctx a ty1' vctx'',tsubst'')
+      | (TRef (TVar a),_) -> (TUnit,subst_vctx a ty2 vctx'',tsubst'')
       | (_,_) -> Error.fail_error ("Error typing " ^ (Syntax.string_of_exprML expr)
                                    ^ " : " ^ (string_of_typeML ty1) ^ " is not a ref type")
     end

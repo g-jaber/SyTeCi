@@ -1,6 +1,6 @@
 # SyTeCi: Automating contextual equivalence for higher-order programs with references
 
-This prototype, written in OCaml, generates, from two programs M_1,M_2 written in a fragment of ML, the Structured-Memory Transition Machine A_S as described in this [paper](https://guilhem.jaber.fr/syteci/draft.pdf).
+This prototype, written in OCaml, generates, from two programs M_1,M_2 written in a fragment of ML, the Structured-Memory Transition Machine A_S as described in this [paper](https://hal.archives-ouvertes.fr/hal-02388621).
 It is represented using the dot format of [graphviz](https://www.graphviz.org/).
 
 One can then check that no failed states are reachable in A_S to prove that M_1,M_2 are contextually equivalent.

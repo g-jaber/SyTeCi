@@ -23,7 +23,7 @@ let rec typing vctx lctx tsubst expr = match expr with
   | Bool _ -> (TBool,vctx,tsubst)
   | Plus (e1,e2) | Minus (e1,e2) | Mult (e1,e2) | Div (e1,e2) -> begin
       try of_type_bin vctx lctx tsubst TInt e1 e2 TInt
-      with TypingError msg -> Error.fail_error ("Error typing " ^(Syntax.string_of_exprML expr) ^ ": " ^ msg) end
+      with TypingError msg -> Error.fail_error ("Error typing Arithmetic Operator " ^(Syntax.string_of_exprML expr) ^ ": " ^ msg) end
   | And (e1,e2) | Or (e1,e2) -> of_type_bin vctx lctx tsubst TBool e1 e2 TBool
   | Equal (e1,e2) | NEqual (e1,e2) | Less (e1,e2) | LessEq (e1,e2) | Great (e1,e2) | GreatEq (e1,e2)  -> 
     of_type_bin vctx lctx tsubst TInt e1 e2 TBool
@@ -172,11 +172,14 @@ and of_type vctx lctx tsubst expr resty =
   | _ -> Error.fail_error ("Error typing " ^ (Syntax.string_of_exprML expr) 
                            ^ " : " ^ ((string_of_typeML ty) ^ " is not equal to " 
                                       ^(string_of_typeML resty)))
-
+(* of_type_bin vctx lctx tsubst TInt e1 e2 TInt *)
 and of_type_bin vctx lctx tsubst com_ty expr1 expr2 res_ty =
   let (ty1,vctx',tsubst') = typing vctx lctx tsubst expr1 in
   let (ty2,vctx'',tsubst'') = typing vctx' lctx tsubst' expr2 in
   let ty1' = apply_type_subst ty1 tsubst'' in
+  Debug.print_debug ("Typing binary operators " ^ (Syntax.string_of_exprML expr1) 
+                     ^ " and " ^ (Syntax.string_of_exprML expr2) ^ " with " ^ (string_of_typeML com_ty)  
+                     ^ ":" ^ (string_of_typeML ty1') ^ " and  " ^ (string_of_typeML ty2) );
   match (ty1',ty2) with
   | (TVar a1,TVar a2) -> 
     let vctx_new = subst_vctx a1 com_ty vctx'' in
@@ -188,8 +191,8 @@ and of_type_bin vctx lctx tsubst com_ty expr1 expr2 res_ty =
   | (_,TVar a2) when ty1 = com_ty -> 
     let vctx_new = subst_vctx a2 com_ty vctx'' in
     (res_ty,vctx_new,Pmap.modadd_pmap (a2,com_ty) tsubst'')
-  | (_,_) when (ty1 = com_ty) && (ty2 = com_ty) -> (res_ty,vctx'',tsubst'')
-  | (_,_) when (ty1 <> com_ty) -> raise (TypingError ((string_of_typeML ty1) ^ " is not equal to " ^(string_of_typeML com_ty)))
+  | (_,_) when (ty1' = com_ty) && (ty2 = com_ty) -> (res_ty,vctx'',tsubst'')
+  | (_,_) when (ty1' <> com_ty) -> raise (TypingError ((string_of_typeML ty1) ^ " is not equal to " ^(string_of_typeML com_ty)))
   | (_,_) -> raise (TypingError ((string_of_typeML ty2) ^ " is not equal to " ^(string_of_typeML com_ty)))
 
 let typing_full polyflag unitflag expr =

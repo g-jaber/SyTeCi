@@ -165,10 +165,11 @@ let get_chc_z3_str (lchc,_,smtenv) =
      let str_list = String.split_on_char '\n' str in
      let regexp = Str.regexp_string "(declare-fun" in
      let str_list = List.filter (fun str -> not (Str.string_match regexp str 0)) str_list in
-     let str_list = str_list@["(query P:print-certificate true)"] in
+     let str_list = str_list@["(query P)"] in
      String.concat "\n" str_list
 
 let check_sat_chc_str str =
+  Debug.print_debug ("Debug check-sat :\n" ^ str);
   Z3.toggle_warning_messages true;
   let ctx = Z3.mk_context [] in
   let fixedpoint = Z3.Fixedpoint.mk_fixedpoint ctx in
@@ -177,18 +178,18 @@ let check_sat_chc_str str =
   (* let symbol_datalog = Z3.Symbol.mk_string ctx "datalog" in *)
   let symbol_spacer = Z3.Symbol.mk_string ctx "spacer" in  
   Z3.Params.add_symbol params symbol_engine symbol_spacer;
-  let symbol_gpdr = Z3.Symbol.mk_string ctx  "spacer.gpdr" in
-  Z3.Params.add_bool params symbol_gpdr true;
+(*  let symbol_gpdr = Z3.Symbol.mk_string ctx  "spacer.gpdr" in
+  Z3.Params.add_bool params symbol_gpdr true;*)
   Z3.Fixedpoint.set_parameters fixedpoint params;
   let query = List.hd (Z3.Fixedpoint.parse_string fixedpoint str) in
-  Debug.print_debug "Z3 fixedpoint parameters:";
+(*  Debug.print_debug "Z3 fixedpoint parameters:";
   Debug.print_debug (Z3.Fixedpoint.get_help fixedpoint);
   Debug.print_debug "Z3 fixedpoint param:";
   Debug.print_debug (Z3.Params.ParamDescrs.to_string (Z3.Fixedpoint.get_param_descrs fixedpoint));  
   Debug.print_debug "Z3 fixedpoint options:";
   Debug.print_debug (Z3.Params.ParamDescrs.to_string (Z3.Fixedpoint.get_param_descrs fixedpoint));  
   Debug.print_debug "Z3 fixedpoint internal representation:";
-  Debug.print_debug (Z3.Fixedpoint.to_string fixedpoint);
+  Debug.print_debug (Z3.Fixedpoint.to_string fixedpoint);*)
   let result = Z3.Fixedpoint.query fixedpoint query in
   match result with
   | SATISFIABLE -> "The two programs are not contextually equivalent."
